@@ -16,7 +16,7 @@ require (
 	github.com/tidwall/gjson v1.14.4
 	github.com/tidwall/sjson v1.2.5
 	github.com/xyzj/gopsu v1.4.3
-	github.com/xyzj/yaag v1.0.5
+	github.com/xyzj/yaag v1.0.6
 	gorm.io/driver/mysql v1.5.0
 	gorm.io/gorm v1.25.1
 )
