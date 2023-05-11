@@ -12,7 +12,7 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/xyzj/gopsu"
 	"github.com/xyzj/gopsu/loopfunc"
-	"github.com/xyzj/wlstmicro/mq"
+	"github.com/xyzj/microframework/mq"
 )
 
 // 启用gps校时

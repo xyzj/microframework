@@ -10,7 +10,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/streadway/amqp"
 	"github.com/xyzj/gopsu"
-	"github.com/xyzj/wlstmicro/mq"
+	"github.com/xyzj/microframework/mq"
 )
 
 func (fw *WMFrameWorkV2) loadMQConfig2nd() {
