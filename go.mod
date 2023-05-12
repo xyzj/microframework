@@ -2,6 +2,8 @@ module github.com/xyzj/microframework
 
 go 1.20
 
+replace github.com/xyzj/gopsu => /config/go/src/github.com/xyzj/gopsu
+
 require (
 	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-contrib/gzip v0.0.6

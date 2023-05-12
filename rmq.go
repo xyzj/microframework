@@ -15,7 +15,7 @@ import (
 	"github.com/tidwall/sjson"
 	"github.com/xyzj/gopsu"
 	"github.com/xyzj/gopsu/loopfunc"
-	"github.com/xyzj/microframework/mq"
+	"github.com/xyzj/gopsu/mq"
 )
 
 // rabbitmq配置
