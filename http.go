@@ -220,6 +220,9 @@ func (fw *WMFrameWorkV2) NewHTTPEngineWithYaagSkip(skip []string, f ...gin.Handl
 	})
 	r.GET("/devquotes", ginmiddleware.Page500)
 	r.GET("/health", ginmiddleware.PageDefault)
+	r.GET("/name", func(c *gin.Context) {
+		c.String(200, fw.serverName)
+	})
 	r.GET("/health/mod", fw.pageModCheck)
 	r.POST("/health/mod", fw.pageModCheck)
 	r.GET("/clearlog", fw.CheckRequired("name"), ginmiddleware.Clearlog)

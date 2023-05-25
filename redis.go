@@ -156,7 +156,7 @@ func (fw *WMFrameWorkV2) ReadRedis(key string) (string, error) {
 	defer cancel()
 	val := fw.redisCtl.client.Get(ctx, key)
 	if val.Err() != nil {
-		fw.logRedisError(val.Err(), "failed read redis data: %s", key)
+		fw.logRedisDebug(val.Err(), "failed read redis data: %s", key)
 		if strings.Contains(val.Err().Error(), " nil") {
 			return "", errRedisNil
 		}
@@ -175,7 +175,7 @@ func (fw *WMFrameWorkV2) ReadHashRedis(key, field string) (string, error) {
 	defer cancel()
 	val := fw.redisCtl.client.HGet(ctx, key, field)
 	if val.Err() != nil {
-		fw.logRedisError(val.Err(), "failed read redis hash data: %s, %s", key, field)
+		fw.logRedisDebug(val.Err(), "failed read redis hash data: %s, %s", key, field)
 		if strings.Contains(val.Err().Error(), " nil") {
 			return "", errRedisNil
 		}
@@ -194,7 +194,7 @@ func (fw *WMFrameWorkV2) ReadHashAllRedis(key string) (map[string]string, error)
 	defer cancel()
 	val := fw.redisCtl.client.HGetAll(ctx, key)
 	if val.Err() != nil {
-		fw.logRedisError(val.Err(), "failed read redis all hash data: %s", key)
+		fw.logRedisDebug(val.Err(), "failed read redis all hash data: %s", key)
 		if strings.Contains(val.Err().Error(), " nil") {
 			return nil, errRedisNil
 		}
@@ -277,7 +277,7 @@ func (fw *WMFrameWorkV2) ReadAllRedisKeys(key string) []string {
 	ctx, cancel := context.WithTimeout(context.Background(), redisCtxTimeo)
 	defer cancel()
 	val := fw.redisCtl.client.Keys(ctx, fw.AppendRootPathRedis(key))
-	fw.logRedisError(val.Err(), "failed read redis keys: %s", key)
+	fw.logRedisDebug(val.Err(), "failed read redis keys: %s", key)
 	return val.Val()
 }
 
@@ -292,7 +292,7 @@ func (fw *WMFrameWorkV2) ReadAllRedis(key string) (map[string]string, error) {
 	defer cancel()
 	val := fw.redisCtl.client.Keys(ctx, key)
 	if val.Err() != nil {
-		fw.logRedisError(val.Err(), "failed read all redis data: %s", key)
+		fw.logRedisDebug(val.Err(), "failed read all redis data: %s", key)
 		if strings.Contains(val.Err().Error(), " nil") {
 			return s, errRedisNil
 		}
@@ -330,6 +330,17 @@ func (fw *WMFrameWorkV2) ExpireUserToken(token string) {
 	fw.ExpireRedis("usermanager/legal/"+MD5Worker.Hash(gopsu.Bytes(token)), fw.tokenLife)
 }
 
+func (fw *WMFrameWorkV2) logRedisDebug(err error, formatstr string, params ...interface{}) error {
+	if err == nil {
+		return nil
+	}
+	// if strings.Contains(err.Error(), "connect: connection refused") {
+	// fw.redisCtl.ready = false
+	// }
+	params = append(params, err.Error())
+	fw.WriteDebug("REDIS", fmt.Sprintf(formatstr+"| %s", params...))
+	return err
+}
 func (fw *WMFrameWorkV2) logRedisError(err error, formatstr string, params ...interface{}) error {
 	if err == nil {
 		return nil
