@@ -59,6 +59,7 @@ func (conf *rabbitConfigure) show(rootPath string) string {
 	conf.forshow, _ = sjson.Set(conf.forshow, "pwd", CWorker.Encrypt(conf.pwd))
 	conf.forshow, _ = sjson.Set(conf.forshow, "vhost", conf.vhost)
 	conf.forshow, _ = sjson.Set(conf.forshow, "exchange", conf.exchange)
+	conf.forshow, _ = sjson.Set(conf.forshow, "protocol", conf.protocol)
 	conf.forshow, _ = sjson.Set(conf.forshow, "use_tls", conf.usetls)
 	conf.forshow, _ = sjson.Set(conf.forshow, "root_path", rootPath)
 	return conf.forshow
@@ -106,7 +107,7 @@ func (fw *WMFrameWorkV2) loadMQConfig(queueAutoDel bool) {
 
 // newMQProducer NewRabbitfw.rmqCtl.mqProducer
 func (fw *WMFrameWorkV2) newMQProducer() bool {
-	fw.loadMQConfigProducer()
+	fw.loadMQConfig(true)
 	if !fw.rmqCtl.enable {
 		return false
 	}

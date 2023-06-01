@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"html/template"
 	"io/ioutil"
-	"math/rand"
 	"mime"
 	"net/http"
 	"net/url"
@@ -433,13 +432,14 @@ func (fw *WMFrameWorkV2) listenAndServeTLS(port int, h *gin.Engine, certfile, ke
 
 // RenewCA 更新ca证书
 func (fw *WMFrameWorkV2) RenewCA() bool {
-	fw.chanSSLRenew <- 1
+	fw.chanSSLRenew <- struct{}{}
 	return true
 }
 
 // 后台更新证书
 func (fw *WMFrameWorkV2) renewCA(s *http.Server, certfile, keyfile string) {
 	loopfunc.LoopFunc(func(params ...interface{}) {
+		t := time.NewTicker(time.Hour * 10)
 		for {
 			select {
 			case <-fw.chanSSLRenew:
@@ -448,8 +448,8 @@ func (fw *WMFrameWorkV2) renewCA(s *http.Server, certfile, keyfile string) {
 					s.TLSConfig.Certificates[0] = newcert
 					s.TLSConfig.ClientAuth = tls.NoClientCert
 				}
-			case <-time.After(time.Hour * time.Duration(1+rand.Int31n(5))):
-				fw.chanSSLRenew <- 1
+			case <-t.C:
+				fw.chanSSLRenew <- struct{}{}
 			}
 		}
 	}, "renew ca", fw.httpWriter)

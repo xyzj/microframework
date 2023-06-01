@@ -99,7 +99,7 @@ func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
 				},
 			},
 		},
-		chanSSLRenew: make(chan int, 2),
+		chanSSLRenew: make(chan struct{}, 2),
 		cacheHead:    gopsu.CalcCRC32String([]byte("microsvrv2")),
 		cacheLocker:  &sync.Map{},
 		ft: &fixedToken{
