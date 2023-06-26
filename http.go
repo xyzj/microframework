@@ -626,6 +626,16 @@ func (fw *WMFrameWorkV2) pageModCheck(c *gin.Context) {
 		}
 		return "ok"
 	}()})
+	// 检查mqtt
+	serviceCheck = append(serviceCheck, []string{"mqtt", func() string {
+		if fw.cnf.UseMQTT == nil || !fw.cnf.UseMQTT.Activation {
+			return "---"
+		}
+		if !fw.MQTTIsReady() {
+			return "bad"
+		}
+		return "ok"
+	}()})
 	if c.Request.Method == "GET" {
 		var d = gin.H{
 			"timer":   gopsu.Stamp2Time(time.Now().Unix()),

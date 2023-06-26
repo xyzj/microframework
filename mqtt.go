@@ -1,18 +1,13 @@
 package wmfw
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/xyzj/gopsu/logger"
-	"github.com/xyzj/gopsu/loopfunc"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/pkg/errors"
 	"github.com/tidwall/sjson"
 	"github.com/xyzj/gopsu"
+	"github.com/xyzj/gopsu/mq"
 )
 
 // mqtt配置
@@ -46,59 +41,27 @@ func (fw *WMFrameWorkV2) newMQTTClient(bindkeys []string, fRecv func(topic strin
 	if !fw.mqttCtl.enable {
 		return
 	}
-	fw.mqttCtl.client = MoreMQTTClient(fw.mqttCtl.addr,
-		fw.mqttCtl.username,
-		fw.mqttCtl.password,
-		bindkeys,
+	var mapkeys = make(map[string]byte)
+	for _, v := range bindkeys {
+		mapkeys[v] = 0
+	}
+	opt := &mq.MqttOpt{
+		Subscribe: mapkeys,
+		ClientID:  fw.serverName,
+		Addr:      fw.mqttCtl.addr,
+		Username:  fw.mqttCtl.username,
+		Passwd:    fw.mqttCtl.password,
+	}
+	fw.mqttCtl.client = mq.NewMQTTClient(opt,
 		fRecv,
 		fw.wmLog)
-	// var mapkeys = make(map[string]byte)
-	// for _, key := range bindkeys {
-	// 	mapkeys[key] = 0
-	// }
-	// var needSub = len(mapkeys) > 0
-	// var clientSub = false
-	// opt := mqtt.NewClientOptions()
-	// opt.AddBroker("tcp://" + fw.mqttCtl.addr)
-	// opt.SetClientID(fw.serverName + "_" + gopsu.GetRandomString(10, true))
-	// opt.SetUsername(fw.mqttCtl.username)
-	// opt.SetPassword(fw.mqttCtl.password)
-	// opt.SetWriteTimeout(time.Second * 3) // 发送3秒超时
-	// opt.SetConnectionLostHandler(func(client mqtt.Client, err error) {
-	// 	fw.WriteError("MQTT", "connection lost, "+err.Error())
-	// 	clientSub = false
-	// })
-	// opt.SetOnConnectHandler(func(client mqtt.Client) {
-	// 	fw.WriteSystem("MQTT", "Success connect to "+fw.mqttCtl.addr)
-	// })
-	// fw.mqttCtl.client = mqtt.NewClient(opt)
-	// loopfunc.LoopFunc(func(params ...interface{}) {
-	// 	if token := fw.mqttCtl.client.Connect(); token.Wait() && token.Error() != nil {
-	// 		panic(token.Error())
-	// 	}
-	// 	t := time.NewTicker(time.Second * 20)
-	// 	for {
-	// 		if needSub && !clientSub && fw.mqttCtl.client.IsConnectionOpen() {
-	// 			fw.mqttCtl.client.SubscribeMultiple(mapkeys, func(client mqtt.Client, msg mqtt.Message) {
-	// 				defer func() {
-	// 					if err := recover(); err != nil {
-	// 						fw.WriteError("MQTT", fmt.Sprintf("%+v", errors.WithStack(err.(error))))
-	// 					}
-	// 				}()
-	// 				fw.WriteDebug("MQTT-R", "topic: "+msg.Topic()+" | body:"+gopsu.String(msg.Payload()))
-	// 				fRecv(msg.Topic(), msg.Payload())
-	// 			})
-	// 			clientSub = true
-	// 		}
-	// 		select {
-	// 		case <-t.C:
-	// 		}
-	// 	}
-	// }, "mqtt", fw.LogDefaultWriter())
 }
 
 // WriteMQTT 发送mqtt消息
 func (fw *WMFrameWorkV2) WriteMQTT(key string, msg []byte, appendhead bool) {
+	if fw.mqttCtl.client == nil {
+		return
+	}
 	if !fw.mqttCtl.client.IsConnectionOpen() {
 		return
 	}
@@ -113,55 +76,10 @@ func (fw *WMFrameWorkV2) WriteMQTT(key string, msg []byte, appendhead bool) {
 	fw.WriteInfo("MQTT-S", key+" | "+gopsu.String(msg))
 }
 
-// MoreMQTTClient 创建一个mqtt客户端
-func MoreMQTTClient(addr, username, passwd string, bindkeys []string, fRecv func(topic string, body []byte), logg logger.Logger) mqtt.Client {
-	if fRecv == nil {
-		fRecv = func(topic string, body []byte) {}
+// MQTTIsReady mqtt是否就绪
+func (fw *WMFrameWorkV2) MQTTIsReady() bool {
+	if fw.mqttCtl.client == nil {
+		return false
 	}
-	if logg == nil {
-		logg = &logger.NilLogger{}
-	}
-	var mapkeys = make(map[string]byte)
-	for _, key := range bindkeys {
-		mapkeys[key] = 0
-	}
-	var needSub = len(mapkeys) > 0
-	var clientSub = false
-	opt := mqtt.NewClientOptions()
-	opt.AddBroker("tcp://" + addr)
-	opt.SetClientID(gopsu.RealIP(false) + "_" + gopsu.GetRandomString(10, true))
-	opt.SetUsername(username)
-	opt.SetPassword(passwd)
-	opt.SetWriteTimeout(time.Second * 3) // 发送3秒超时
-	opt.SetConnectionLostHandler(func(client mqtt.Client, err error) {
-		logg.Error("[MQTT] connection lost, " + err.Error())
-		clientSub = false
-	})
-	opt.SetOnConnectHandler(func(client mqtt.Client) {
-		logg.System("[MQTT] Success connect to " + addr)
-	})
-	client := mqtt.NewClient(opt)
-	go loopfunc.LoopFunc(func(params ...interface{}) {
-		if token := client.Connect(); token.Wait() && token.Error() != nil {
-			panic(token.Error())
-		}
-		t := time.NewTicker(time.Second * 20)
-		for {
-			if needSub && !clientSub && client.IsConnectionOpen() {
-				client.SubscribeMultiple(mapkeys, func(client mqtt.Client, msg mqtt.Message) {
-					defer func() {
-						if err := recover(); err != nil {
-							logg.Error("[MQTT] " + fmt.Sprintf("%+v", errors.WithStack(err.(error))))
-						}
-					}()
-					fRecv(msg.Topic(), msg.Payload())
-				})
-				clientSub = true
-			}
-			select {
-			case <-t.C:
-			}
-		}
-	}, "mqtt", logg.DefaultWriter())
-	return client
+	return fw.mqttCtl.client.IsConnectionOpen()
 }
