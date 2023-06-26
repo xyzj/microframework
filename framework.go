@@ -298,6 +298,16 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 			}
 		}
 	}
+	if opv2.UseMQTT != nil {
+		if opv2.UseMQTT.Activation {
+			if opv2.UseMQTT.RecvFunc == nil {
+				opv2.UseMQTT.RecvFunc = func(key string, msg []byte) {
+					fw.WriteDebug("MQTT-D", "key:"+key+" | body:"+gopsu.String(msg))
+				}
+			}
+			go fw.newMQTTClient(opv2.UseMQTT.BindKeys, opv2.UseMQTT.RecvFunc)
+		}
+	}
 	// gin http
 	if opv2.UseHTTP != nil {
 		if opv2.UseHTTP.Activation {

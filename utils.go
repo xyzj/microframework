@@ -130,6 +130,16 @@ type OptionHTTP struct {
 	Activation bool
 }
 
+// OptionMQTT mqtt配置
+type OptionMQTT struct {
+	// 消费者绑定key
+	BindKeys []string
+	// 消费者数据处理方法
+	RecvFunc func(key string, body []byte)
+	// 启用
+	Activation bool
+}
+
 // OptionFrameWorkV2 wlst 微服务框架配置v2版
 type OptionFrameWorkV2 struct {
 	// 配置文件路径
@@ -144,6 +154,8 @@ type OptionFrameWorkV2 struct {
 	UseMQProducer *OptionMQProducer
 	// 启用mq消费者模块
 	UseMQConsumer *OptionMQConsumer
+	// 启用mqtt模块
+	UseMQTT *OptionMQTT
 	// 启用http服务模块
 	UseHTTP *OptionHTTP
 	// 启动参数处理方法，在功能模块初始化之前执行
@@ -201,6 +213,7 @@ type WMFrameWorkV2 struct {
 	dbCtl          *dbConfigure
 	rmqCtl         *rabbitConfigure
 	rmqCtl2nd      *rabbitConfigure
+	mqttCtl        *mqttConfigure
 	httpClientPool *http.Client
 	cnf            *OptionFrameWorkV2
 	dborms         []*gorm.DB
