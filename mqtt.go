@@ -45,7 +45,12 @@ func (fw *WMFrameWorkV2) newMQTTClient(bindkeys []string, fRecv func(topic strin
 	if !fw.mqttCtl.enable || len(bindkeys) == 0 {
 		return
 	}
-	var csub = false
+	var mapkeys = make(map[string]byte)
+	for _, key := range bindkeys {
+		mapkeys[key] = 0
+	}
+	var needSub = len(mapkeys) > 0
+	var clientSub = false
 	opt := mqtt.NewClientOptions()
 	opt.AddBroker("tcp://" + fw.mqttCtl.addr)
 	opt.SetClientID(fw.serverName + "_" + gopsu.GetRandomString(10, true))
@@ -54,28 +59,16 @@ func (fw *WMFrameWorkV2) newMQTTClient(bindkeys []string, fRecv func(topic strin
 	opt.SetWriteTimeout(time.Second * 3) // 发送3秒超时
 	opt.SetConnectionLostHandler(func(client mqtt.Client, err error) {
 		fw.WriteError("MQTT", "connection lost, "+err.Error())
-		csub = false
+		clientSub = false
 	})
-	var mapkeys = make(map[string]byte)
-	for _, key := range bindkeys {
-		mapkeys[key] = 0
-	}
 	fw.mqttCtl.client = mqtt.NewClient(opt)
 	loopfunc.LoopFunc(func(params ...interface{}) {
 		if token := fw.mqttCtl.client.Connect(); token.Wait() && token.Error() != nil {
 			panic(token.Error())
 		}
-		fw.mqttCtl.client.SubscribeMultiple(mapkeys, func(client mqtt.Client, msg mqtt.Message) {
-			defer func() {
-				if err := recover(); err != nil {
-					fw.WriteError("MQTT", fmt.Sprintf("%+v", errors.WithStack(err.(error))))
-				}
-			}()
-			fRecv(msg.Topic(), msg.Payload())
-		})
 		t := time.NewTicker(time.Second * 15)
 		for {
-			if !csub && fw.mqttCtl.client.IsConnectionOpen() {
+			if needSub && !clientSub && fw.mqttCtl.client.IsConnectionOpen() {
 				fw.mqttCtl.client.SubscribeMultiple(mapkeys, func(client mqtt.Client, msg mqtt.Message) {
 					defer func() {
 						if err := recover(); err != nil {
@@ -84,7 +77,7 @@ func (fw *WMFrameWorkV2) newMQTTClient(bindkeys []string, fRecv func(topic strin
 					}()
 					fRecv(msg.Topic(), msg.Payload())
 				})
-				csub = true
+				clientSub = true
 			}
 			select {
 			case <-t.C:
