@@ -83,6 +83,7 @@ func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
 		dbCtl:      &dbConfigure{},
 		rmqCtl:     &rabbitConfigure{},
 		rmqCtl2nd:  &rabbitConfigure{},
+		mqttCtl:    &mqttConfigure{},
 		reqTimeo:   time.Second * 30,
 		httpClientPool: &http.Client{
 			// Timeout: time.Duration(time.Second * 60),
@@ -305,7 +306,7 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 					fw.WriteDebug("MQTT-D", "key:"+key+" | body:"+gopsu.String(msg))
 				}
 			}
-			go fw.newMQTTClient(opv2.UseMQTT.BindKeys, opv2.UseMQTT.RecvFunc)
+			fw.newMQTTClient(opv2.UseMQTT.BindKeys, opv2.UseMQTT.RecvFunc)
 		}
 	}
 	// gin http

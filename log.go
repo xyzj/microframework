@@ -64,10 +64,10 @@ func (fw *WMFrameWorkV2) WriteLog(name, msg string, level int) {
 
 // StdLogger StdLogger
 type StdLogger struct {
-	Name        string
-	LogReplacer *strings.Replacer
-	LogLevel    int
 	LogWriter   io.Writer
+	LogReplacer *strings.Replacer
+	Name        string
+	LogLevel    int
 }
 
 func (l *StdLogger) writeLog(msg string, level int) {
