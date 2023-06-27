@@ -199,6 +199,7 @@ func (ft *fixedToken) Get(username string) (string, bool) {
 // WMFrameWorkV2 v2版微服务框架
 type WMFrameWorkV2 struct {
 	chanSSLRenew   chan struct{}
+	chanRegDone    chan struct{}
 	cacheLocker    *sync.Map
 	cacheMem       *cache.XCache
 	ft             *fixedToken // 固定token

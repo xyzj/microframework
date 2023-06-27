@@ -1,14 +1,11 @@
 package wmfw
 
 import (
-	"crypto/tls"
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/streadway/amqp"
 	"github.com/xyzj/gopsu"
 	"github.com/xyzj/gopsu/mq"
 )
@@ -43,16 +40,27 @@ func (fw *WMFrameWorkV2) newMQProducer2nd() bool {
 	if !fw.rmqCtl2nd.enable {
 		return false
 	}
-	fw.rmqCtl2nd.mqProducer = mq.NewProducer(fw.rmqCtl2nd.exchange, fmt.Sprintf("%s://%s:%s@%s/%s", fw.rmqCtl2nd.protocol, fw.rmqCtl2nd.user, fw.rmqCtl2nd.pwd, fw.rmqCtl2nd.addr, fw.rmqCtl2nd.vhost), false)
-	fw.rmqCtl2nd.mqProducer.SetLogger(&StdLogger{
-		Name:        "MQP2nd",
-		LogReplacer: strings.NewReplacer("[", "", "]", ""),
-		LogWriter:   fw.coreWriter,
-	})
-	if fw.rmqCtl2nd.usetls {
-		return fw.rmqCtl2nd.mqProducer.StartTLS(&tls.Config{InsecureSkipVerify: true})
+	opt := &mq.RabbitMQOpt{
+		ExchangeName:       "luwak_topic",
+		ExchangeDurable:    true,
+		ExchangeAutoDelete: true,
+		Addr:               fw.rmqCtl2nd.addr,
+		Username:           fw.rmqCtl2nd.user,
+		Passwd:             fw.rmqCtl2nd.pwd,
+		VHost:              fw.rmqCtl2nd.vhost,
 	}
-	return fw.rmqCtl2nd.mqProducer.Start()
+	fw.rmqCtl2nd.sender = mq.NewRMQProducer(opt, fw.wmLog)
+	return true
+	// fw.rmqCtl2nd.mqProducer = mq.NewProducer(fw.rmqCtl2nd.exchange, fmt.Sprintf("%s://%s:%s@%s/%s", fw.rmqCtl2nd.protocol, fw.rmqCtl2nd.user, fw.rmqCtl2nd.pwd, fw.rmqCtl2nd.addr, fw.rmqCtl2nd.vhost), false)
+	// fw.rmqCtl2nd.mqProducer.SetLogger(&StdLogger{
+	// 	Name:        "MQP2nd",
+	// 	LogReplacer: strings.NewReplacer("[", "", "]", ""),
+	// 	LogWriter:   fw.coreWriter,
+	// })
+	// if fw.rmqCtl2nd.usetls {
+	// 	return fw.rmqCtl2nd.mqProducer.StartTLS(&tls.Config{InsecureSkipVerify: true})
+	// }
+	// return fw.rmqCtl2nd.mqProducer.Start()
 }
 
 // ProducerIsReady2nd 返回ProducerIsReady可用状态
@@ -65,23 +73,24 @@ func (fw *WMFrameWorkV2) ProducerIsReady2nd() bool {
 
 // WriteRabbitMQ2nd 写mq2nd，不会追加头
 func (fw *WMFrameWorkV2) WriteRabbitMQ2nd(key string, value []byte, expire time.Duration, msgproto ...proto.Message) error {
-	if !fw.ProducerIsReady() {
-		return fmt.Errorf("mq 2nd producer is not ready")
-	}
-	err := fw.rmqCtl2nd.mqProducer.SendCustom(&mq.RabbitMQData{
-		RoutingKey: key,
-		Data: &amqp.Publishing{
-			ContentType:  "text/plain",
-			DeliveryMode: amqp.Persistent,
-			Expiration:   strconv.Itoa(int(expire.Nanoseconds() / 1000000)),
-			Timestamp:    time.Now(),
-			Body:         value,
-		},
-	})
-	if err != nil {
-		fw.WriteError("MQP2nd", "SErr:"+key+"|"+err.Error())
-		return err
-	}
+	fw.rmqCtl2nd.sender.Send(key, value, time.Second*30)
+	// if !fw.ProducerIsReady() {
+	// 	return fmt.Errorf("mq 2nd producer is not ready")
+	// }
+	// err := fw.rmqCtl2nd.mqProducer.SendCustom(&mq.RabbitMQData{
+	// 	RoutingKey: key,
+	// 	Data: &amqp.Publishing{
+	// 		ContentType:  "text/plain",
+	// 		DeliveryMode: amqp.Persistent,
+	// 		Expiration:   strconv.Itoa(int(expire.Nanoseconds() / 1000000)),
+	// 		Timestamp:    time.Now(),
+	// 		Body:         value,
+	// 	},
+	// })
+	// if err != nil {
+	// 	fw.WriteError("MQP2nd", "SErr:"+key+"|"+err.Error())
+	// 	return err
+	// }
 	fw.WriteInfo("MQP2nd", "S:"+key+"|"+gopsu.String(value))
 	return nil
 }

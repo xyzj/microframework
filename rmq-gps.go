@@ -1,12 +1,10 @@
 package wmfw
 
 import (
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"math"
 	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/tidwall/gjson"
@@ -18,24 +16,51 @@ import (
 // 启用gps校时
 func (fw *WMFrameWorkV2) newGPSConsumer() {
 	fw.loadMQConfig(true)
-	queue := fw.rootPath + "_" + fw.serverName + "_gps_" + MD5Worker.Hash(gopsu.Bytes(time.Now().Format("150405000")))
-	durable := false
-	autodel := true
-	fw.rmqCtl.gpsConsumer = mq.NewConsumer(fw.rmqCtl.exchange, fmt.Sprintf("%s://%s:%s@%s/%s", fw.rmqCtl.protocol, fw.rmqCtl.user, fw.rmqCtl.pwd, fw.rmqCtl.addr, fw.rmqCtl.vhost), queue, durable, autodel, false)
-	fw.rmqCtl.gpsConsumer.SetLogger(&StdLogger{
-		Name:        "MQGPS",
-		LogReplacer: strings.NewReplacer("[", "", "]", ""),
-		LogWriter:   fw.coreWriter,
-	})
-
-	if fw.rmqCtl.usetls {
-		fw.rmqCtl.gpsConsumer.StartTLS(&tls.Config{InsecureSkipVerify: true})
-	} else {
-		fw.rmqCtl.gpsConsumer.Start()
+	opt := &mq.RabbitMQOpt{
+		QueueAutoDelete:    true,
+		QueueDurable:       true,
+		ExchangeAutoDelete: true,
+		ExchangeDurable:    true,
+		ExchangeName:       "luwak_topic",
+		QueueName:          fw.rootPath + "_" + fw.serverName + "_gps_" + MD5Worker.Hash(gopsu.Bytes(time.Now().Format("150405000"))),
+		VHost:              fw.rmqCtl.vhost,
+		Username:           fw.rmqCtl.user,
+		Passwd:             fw.rmqCtl.pwd,
+		Addr:               fw.rmqCtl.addr,
+		Subscribe:          []string{fw.AppendRootPathRabbit("gps.serlreader.#")},
 	}
+	mq.NewRMQConsumer(opt, fw.wmLog, func(topic string, body []byte) {
+		gpsData := gjson.ParseBytes(body)
+		if math.Abs(float64(gpsData.Get("cache_time").Int()-time.Now().Unix())) < 30 {
+			switch fw.gpsTimer {
+			case 0: // 不校时，不存在这个情况，姑且写在这里
+			case 1: // 50～900s范围校时
+				if math.Abs(float64(time.Now().Unix()-gpsData.Get("gps_time").Int())) > 50 && math.Abs(float64(time.Now().Unix()-gpsData.Get("gps_time").Int())) < 900 {
+					fw.modifyTime(gpsData.Get("gps_time").Int())
+				}
+			case 2: // 强制校时
+				fw.modifyTime(gpsData.Get("gps_time").Int())
+			}
+		}
+	})
+	// queue := fw.rootPath + "_" + fw.serverName + "_gps_" + MD5Worker.Hash(gopsu.Bytes(time.Now().Format("150405000")))
+	// durable := false
+	// autodel := true
+	// fw.rmqCtl.gpsConsumer = mq.NewConsumer(fw.rmqCtl.exchange, fmt.Sprintf("%s://%s:%s@%s/%s", fw.rmqCtl.protocol, fw.rmqCtl.user, fw.rmqCtl.pwd, fw.rmqCtl.addr, fw.rmqCtl.vhost), queue, durable, autodel, false)
+	// fw.rmqCtl.gpsConsumer.SetLogger(&StdLogger{
+	// 	Name:        "MQGPS",
+	// 	LogReplacer: strings.NewReplacer("[", "", "]", ""),
+	// 	LogWriter:   fw.coreWriter,
+	// })
 
-	fw.rmqCtl.gpsConsumer.BindKey(fw.AppendRootPathRabbit("gps.serlreader.#"))
-	go fw.gpsRecv()
+	// if fw.rmqCtl.usetls {
+	// 	fw.rmqCtl.gpsConsumer.StartTLS(&tls.Config{InsecureSkipVerify: true})
+	// } else {
+	// 	fw.rmqCtl.gpsConsumer.Start()
+	// }
+
+	// fw.rmqCtl.gpsConsumer.BindKey(fw.AppendRootPathRabbit("gps.serlreader.#"))
+	// go fw.gpsRecv()
 }
 
 func (fw *WMFrameWorkV2) gpsRecv() {

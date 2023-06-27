@@ -35,7 +35,7 @@ func (conf *mqttConfigure) show(rootPath string) string {
 func (fw *WMFrameWorkV2) newMQTTClient(bindkeys []string, fRecv func(topic string, body []byte)) {
 	fw.mqttCtl.addr = fw.wmConf.GetItemDefault("mqtt_addr", "127.0.0.1:1883", "mqtt服务地址,ip:port格式")
 	fw.mqttCtl.username = fw.wmConf.GetItemDefault("mqtt_user", "", "mqtt用户名")
-	fw.mqttCtl.password = fw.wmConf.GetItemDefault("mqtt_pwd", "", "mqtt密码")
+	fw.mqttCtl.password = gopsu.DecodeString(fw.wmConf.GetItemDefault("mqtt_pwd", "", "mqtt密码"))
 	fw.mqttCtl.enable, _ = strconv.ParseBool(fw.wmConf.GetItemDefault("mqtt_enable", "false", "是否启用mqtt"))
 	fw.wmConf.Save()
 	if !fw.mqttCtl.enable {
@@ -53,8 +53,8 @@ func (fw *WMFrameWorkV2) newMQTTClient(bindkeys []string, fRecv func(topic strin
 		Passwd:    fw.mqttCtl.password,
 	}
 	fw.mqttCtl.client = mq.NewMQTTClient(opt,
-		fRecv,
-		fw.wmLog)
+		fw.wmLog,
+		fRecv)
 }
 
 // WriteMQTT 发送mqtt消息
@@ -70,10 +70,10 @@ func (fw *WMFrameWorkV2) WriteMQTT(key string, msg []byte, appendhead bool) {
 	}
 	token := fw.mqttCtl.client.Publish(key, 0, false, msg)
 	if token.Wait() && token.Error() != nil {
-		fw.WriteError("MQTT-Err", token.Error().Error())
+		fw.WriteError("[MQTT] E:", token.Error().Error())
 		return
 	}
-	fw.WriteInfo("MQTT-S", key+" | "+gopsu.String(msg))
+	fw.WriteInfo("[MQTT] S:", key+" | "+gopsu.String(msg))
 }
 
 // MQTTIsReady mqtt是否就绪

@@ -175,6 +175,7 @@ func (fw *WMFrameWorkV2) etcdRedis(etcd *optEtcd) {
 		treg := time.NewTicker(time.Second * 5) // 注册
 		tget := time.NewTicker(time.Second * 6) // 读取
 		fetcdRead()
+		fw.chanRegDone <- struct{}{}
 		if err := fetcdReg(); err == nil {
 			fw.WriteSystem("ETCD", fmt.Sprintf("Registration to redis-server %v as `%s://%s:%s/%s` success.", fw.redisCtl.addr, etcd.Interface, etcd.Host, etcd.Port, etcd.Name))
 		}

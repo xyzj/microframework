@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/streadway/amqp"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"github.com/xyzj/gopsu"
@@ -51,6 +50,7 @@ type rabbitConfigure struct {
 	mqConsumer *mq.Session
 	// gpsConsumer 消费者
 	gpsConsumer *mq.Session
+	sender      *mq.RMQProducer
 }
 
 func (conf *rabbitConfigure) show(rootPath string) string {
@@ -111,16 +111,63 @@ func (fw *WMFrameWorkV2) newMQProducer() bool {
 	if !fw.rmqCtl.enable {
 		return false
 	}
-	fw.rmqCtl.mqProducer = mq.NewProducer(fw.rmqCtl.exchange, fmt.Sprintf("%s://%s:%s@%s/%s", fw.rmqCtl.protocol, fw.rmqCtl.user, fw.rmqCtl.pwd, fw.rmqCtl.addr, fw.rmqCtl.vhost), false)
-	fw.rmqCtl.mqProducer.SetLogger(&StdLogger{
-		Name:        "MQP",
-		LogReplacer: strings.NewReplacer("[", "", "]", ""),
-		LogWriter:   fw.coreWriter,
-	})
-	if fw.rmqCtl.usetls {
-		return fw.rmqCtl.mqProducer.StartTLS(&tls.Config{InsecureSkipVerify: true})
+	opt := &mq.RabbitMQOpt{
+		ExchangeName:       "luwak_topic",
+		ExchangeDurable:    true,
+		ExchangeAutoDelete: true,
+		Addr:               fw.rmqCtl.addr,
+		Username:           fw.rmqCtl.user,
+		Passwd:             fw.rmqCtl.pwd,
+		VHost:              fw.rmqCtl.vhost,
 	}
-	return fw.rmqCtl.mqProducer.Start()
+	if fw.rmqCtl.usetls {
+		opt.TLSConf = &tls.Config{InsecureSkipVerify: true}
+	}
+	fw.rmqCtl.sender = mq.NewRMQProducer(opt, fw.wmLog)
+	// fw.rmqCtl.mqProducer = mq.NewProducer(fw.rmqCtl.exchange, fmt.Sprintf("%s://%s:%s@%s/%s", fw.rmqCtl.protocol, fw.rmqCtl.user, fw.rmqCtl.pwd, fw.rmqCtl.addr, fw.rmqCtl.vhost), false)
+	// fw.rmqCtl.mqProducer.SetLogger(&StdLogger{
+	// 	Name:        "MQP",
+	// 	LogReplacer: strings.NewReplacer("[", "", "]", ""),
+	// 	LogWriter:   fw.coreWriter,
+	// })
+	// if fw.rmqCtl.usetls {
+	// 	return fw.rmqCtl.mqProducer.StartTLS(&tls.Config{InsecureSkipVerify: true})
+	// }
+	// return fw.rmqCtl.mqProducer.Start()
+	return true
+}
+
+// Newfw.rmqCtl.mqConsumer Newfw.rmqCtl.mqConsumer
+func (fw *WMFrameWorkV2) newMQConsumerV2(queueAutoDel bool, bindkeys []string, recv func(key string, value []byte)) {
+	fw.loadMQConfig(queueAutoDel)
+	// 若不启用mq功能，则退出
+	if !fw.rmqCtl.enable {
+		return
+	}
+
+	fw.rmqCtl.queue = fw.rootPath + "_" + fw.serverName
+	if fw.rmqCtl.queueRandom {
+		fw.rmqCtl.queue += "_" + MD5Worker.Hash(gopsu.Bytes(time.Now().Format("150405000")))
+		fw.rmqCtl.durable = false
+		fw.rmqCtl.autodel = true
+	}
+	opt := &mq.RabbitMQOpt{
+		QueueAutoDelete:    true,
+		QueueDurable:       true,
+		ExchangeAutoDelete: true,
+		ExchangeDurable:    true,
+		ExchangeName:       "luwak_topic",
+		QueueName:          fw.rmqCtl.queue,
+		VHost:              fw.rmqCtl.vhost,
+		Username:           fw.rmqCtl.user,
+		Passwd:             fw.rmqCtl.pwd,
+		Addr:               fw.rmqCtl.addr,
+		Subscribe:          bindkeys,
+	}
+	if fw.rmqCtl.usetls {
+		opt.TLSConf = &tls.Config{InsecureSkipVerify: true}
+	}
+	mq.NewRMQConsumer(opt, fw.wmLog, recv)
 }
 
 // Newfw.rmqCtl.mqConsumer Newfw.rmqCtl.mqConsumer
@@ -130,12 +177,7 @@ func (fw *WMFrameWorkV2) newMQConsumer(queueAutoDel bool) bool {
 	if !fw.rmqCtl.enable {
 		return false
 	}
-	fw.rmqCtl.queue = fw.rootPath + "_" + fw.serverName
-	if fw.rmqCtl.queueRandom {
-		fw.rmqCtl.queue += "_" + MD5Worker.Hash(gopsu.Bytes(time.Now().Format("150405000")))
-		fw.rmqCtl.durable = false
-		fw.rmqCtl.autodel = true
-	}
+
 	fw.rmqCtl.mqConsumer = mq.NewConsumer(fw.rmqCtl.exchange,
 		fmt.Sprintf("%s://%s:%s@%s/%s", fw.rmqCtl.protocol, fw.rmqCtl.user, fw.rmqCtl.pwd, fw.rmqCtl.addr, fw.rmqCtl.vhost),
 		fw.rmqCtl.queue,
@@ -268,24 +310,26 @@ func (fw *WMFrameWorkV2) UnBindRabbitMQ(keys ...string) {
 
 // WriteRabbitMQ 写mq
 func (fw *WMFrameWorkV2) WriteRabbitMQ(key string, value []byte, expire time.Duration, msgproto ...proto.Message) error {
-	if !fw.ProducerIsReady() {
-		return fmt.Errorf("mq producer is not ready")
-	}
 	key = fw.AppendRootPathRabbit(key)
-	err := fw.rmqCtl.mqProducer.SendCustom(&mq.RabbitMQData{
-		RoutingKey: key,
-		Data: &amqp.Publishing{
-			ContentType:  "text/plain",
-			DeliveryMode: amqp.Persistent,
-			Expiration:   strconv.Itoa(int(expire.Milliseconds())),
-			Timestamp:    time.Now(),
-			Body:         value,
-		},
-	})
-	if err != nil {
-		fw.WriteError("MQP", "SErr:"+key+"|"+err.Error())
-		return err
-	}
+	fw.rmqCtl.sender.Send(key, value, expire)
+	// if !fw.ProducerIsReady() {
+	// 	return fmt.Errorf("mq producer is not ready")
+	// }
+	// key = fw.AppendRootPathRabbit(key)
+	// err := fw.rmqCtl.mqProducer.SendCustom(&mq.RabbitMQData{
+	// 	RoutingKey: key,
+	// 	Data: &amqp.Publishing{
+	// 		ContentType:  "text/plain",
+	// 		DeliveryMode: amqp.Persistent,
+	// 		Expiration:   strconv.Itoa(int(expire.Milliseconds())),
+	// 		Timestamp:    time.Now(),
+	// 		Body:         value,
+	// 	},
+	// })
+	// if err != nil {
+	// 	fw.WriteError("MQP", "SErr:"+key+"|"+err.Error())
+	// 	return err
+	// }
 	if len(msgproto) > 0 {
 		// fw.WriteInfo("MQP", "S:"+key+"|"+gopsu.PB2String(msgFromBytes(value, msgproto[0])))
 		fw.WriteInfo("MQP", "S:"+key+"|"+msgFromBytes(value, msgproto[0]))

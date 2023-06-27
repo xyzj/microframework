@@ -101,6 +101,7 @@ func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
 			},
 		},
 		chanSSLRenew: make(chan struct{}, 2),
+		chanRegDone:  make(chan struct{}, 2),
 		cacheHead:    gopsu.CalcCRC32String([]byte("microsvrv2")),
 		cacheLocker:  &sync.Map{},
 		ft: &fixedToken{
@@ -248,18 +249,18 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 	if opv2.FrontFunc != nil {
 		opv2.FrontFunc()
 	}
+	// redis
+	if opv2.UseRedis != nil {
+		if opv2.UseRedis.Activation {
+			fw.newRedisClient()
+		}
+	}
 	// etcd
 	if opv2.UseETCD != nil {
 		fw.newRedisETCDClient()
 		// if opv2.UseETCD.Activation {
 		// 	go fw.newETCDClient()
 		// }
-	}
-	// redis
-	if opv2.UseRedis != nil {
-		if opv2.UseRedis.Activation {
-			fw.newRedisClient()
-		}
 	}
 	// 生产者
 	if opv2.UseMQProducer != nil {
@@ -270,15 +271,25 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 	// 消费者
 	if opv2.UseMQConsumer != nil {
 		if opv2.UseMQConsumer.Activation {
-			if fw.newMQConsumer(!opv2.UseMQConsumer.KeepQueue) {
-				if opv2.UseMQConsumer.BindKeysFunc != nil {
-					if ss, ok := opv2.UseMQConsumer.BindKeysFunc(); ok {
-						opv2.UseMQConsumer.BindKeys = ss
-					}
+			// if fw.newMQConsumer(!opv2.UseMQConsumer.KeepQueue) {
+			// 	if opv2.UseMQConsumer.BindKeysFunc != nil {
+			// 		if ss, ok := opv2.UseMQConsumer.BindKeysFunc(); ok {
+			// 			opv2.UseMQConsumer.BindKeys = ss
+			// 		}
+			// 	}
+			// 	fw.BindRabbitMQ(opv2.UseMQConsumer.BindKeys...)
+			// 	go fw.recvRabbitMQ(opv2.UseMQConsumer.RecvFunc)
+			// }
+			if opv2.UseMQConsumer.BindKeysFunc != nil {
+				if ss, ok := opv2.UseMQConsumer.BindKeysFunc(); ok {
+					opv2.UseMQConsumer.BindKeys = ss
 				}
-				fw.BindRabbitMQ(opv2.UseMQConsumer.BindKeys...)
-				go fw.recvRabbitMQ(opv2.UseMQConsumer.RecvFunc)
 			}
+			var xss = make([]string, 0, len(opv2.UseMQConsumer.BindKeys))
+			for _, v := range opv2.UseMQConsumer.BindKeys {
+				xss = append(xss, fw.AppendRootPathRabbit(v))
+			}
+			fw.newMQConsumerV2(!opv2.UseMQConsumer.KeepQueue, xss, opv2.UseMQConsumer.RecvFunc)
 		}
 	}
 	// sql
@@ -299,6 +310,7 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 			}
 		}
 	}
+	// mqtt
 	if opv2.UseMQTT != nil {
 		if opv2.UseMQTT.Activation {
 			if opv2.UseMQTT.RecvFunc == nil {
@@ -329,6 +341,10 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 	}
 	// 执行额外方法
 	if opv2.ExpandFuncs != nil {
+		select {
+		case <-fw.chanRegDone:
+		case <-time.After(time.Second * 3):
+		}
 		for _, v := range opv2.ExpandFuncs {
 			v()
 		}
