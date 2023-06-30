@@ -98,11 +98,12 @@ DBCONN:
 		MaxOpenConns: 200,
 		CacheDir:     gopsu.DefaultCacheDir,
 		Timeout:      120,
-		Logger: &StdLogger{
-			Name:        "DB",
-			LogReplacer: strings.NewReplacer("[", "", "]", ""),
-			LogWriter:   fw.coreWriter,
-		},
+		Logger:       fw.wmLog,
+		// Logger: &StdLogger{
+		// 	Name:        "DB",
+		// 	LogReplacer: strings.NewReplacer("[", "", "]", ""),
+		// 	LogWriter:   fw.coreWriter,
+		// },
 	}
 	switch fw.dbCtl.driver {
 	case "mssql":

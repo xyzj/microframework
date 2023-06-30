@@ -196,20 +196,40 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 	if fw.loggerMark == "" {
 		fw.loggerMark = fmt.Sprintf("%s-%05d", fw.serverName, *webPort)
 	}
-	fw.coreWriter = logger.NewWriter(&logger.OptLog{
-		AutoRoll: *logLevel > 1,
-		FileDir:  gopsu.DefaultLogDir,
-		Filename: func(level int) string {
+	cl := make([]byte, 0)
+	if *logLevel > 10 {
+		cl = []byte{40, 90}
+	}
+	fw.wmLog = logger.NewLogger(gopsu.DefaultLogDir,
+		func(level int) string {
 			if level > 1 {
 				return fw.loggerMark + ".core"
 			}
 			return ""
 		}(*logLevel),
-		MaxDays:       *logDays,
-		ZipFile:       *logDays > 10,
-		SyncToConsole: *logLevel <= 10,
-		DelayWrite:    *logLazy,
-	})
+		*logLevel,
+		*logDays,
+		*logLazy,
+		cl...)
+	// fw.coreWriter = fw.wmLog.DefaultWriter()
+	// fw.wmLog = &StdLogger{
+	// 	LogLevel:  *logLevel,
+	// 	LogWriter: fw.coreWriter,
+	// }
+	// fw.coreWriter = logger.NewWriter(&logger.OptLog{
+	// 	AutoRoll: *logLevel > 1,
+	// 	FileDir:  gopsu.DefaultLogDir,
+	// 	Filename: func(level int) string {
+	// 		if level > 1 {
+	// 			return fw.loggerMark + ".core"
+	// 		}
+	// 		return ""
+	// 	}(*logLevel),
+	// 	MaxDays:       *logDays,
+	// 	ZipFile:       *logDays > 10,
+	// 	SyncToConsole: *logLevel <= 10,
+	// 	DelayWrite:    *logLazy,
+	// })
 	fw.httpWriter = logger.NewWriter(&logger.OptLog{
 		AutoRoll: *logLevel > 1,
 		FileDir:  gopsu.DefaultLogDir,
@@ -224,14 +244,10 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 		SyncToConsole: *logLevel <= 10,
 		DelayWrite:    *logLazy,
 	})
-	fw.wmLog = &StdLogger{
-		LogLevel:  *logLevel,
-		LogWriter: fw.coreWriter,
-	}
 	if opv2.ConfigFile == "" {
 		opv2.ConfigFile = *conf
 	}
-	fw.cacheMem = cache.NewCacheWithWriter(70000, fw.coreWriter)
+	fw.cacheMem = cache.NewCacheWithWriter(70000, fw.wmLog.DefaultWriter())
 	// 载入配置
 	var cfpath string
 	if opv2.ConfigFile != "" {
@@ -430,7 +446,7 @@ func (fw *WMFrameWorkV2) GetLogger() logger.Logger {
 
 // LogDefaultWriter 返回日志writer
 func (fw *WMFrameWorkV2) LogDefaultWriter() io.Writer {
-	return fw.coreWriter
+	return fw.wmLog.DefaultWriter()
 }
 
 // ConfClient 配置文件实例

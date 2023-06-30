@@ -198,16 +198,16 @@ func (ft *fixedToken) Get(username string) (string, bool) {
 
 // WMFrameWorkV2 v2版微服务框架
 type WMFrameWorkV2 struct {
-	chanSSLRenew   chan struct{}
-	chanRegDone    chan struct{}
-	cacheLocker    *sync.Map
-	cacheMem       *cache.XCache
-	ft             *fixedToken // 固定token
-	mapEtcd        *mapETCD
-	reqTimeo       time.Duration
-	wmConf         *gopsu.ConfData // 配置
-	wmLog          logger.Logger   // 日志
-	coreWriter     io.Writer
+	chanSSLRenew chan struct{}
+	chanRegDone  chan struct{}
+	cacheLocker  *sync.Map
+	cacheMem     *cache.XCache
+	ft           *fixedToken // 固定token
+	mapEtcd      *mapETCD
+	reqTimeo     time.Duration
+	wmConf       *gopsu.ConfData // 配置
+	wmLog        logger.Logger   // 日志
+	// coreWriter     io.Writer
 	httpWriter     io.Writer
 	etcdCtl        *etcdConfigure
 	redisCtl       *redisConfigure
@@ -251,10 +251,4 @@ func init() {
 // NotHere 返回nothere图片
 func NotHere() []byte {
 	return nothere
-}
-
-func logOut(level int, msg string) {
-	if *logLevel > 10 && level >= 40 {
-		println(time.Now().Format(logger.ShortTimeFormat) + msg)
-	}
 }

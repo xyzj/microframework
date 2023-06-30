@@ -2,10 +2,6 @@ package wmfw
 
 import (
 	"fmt"
-	"io"
-	"strings"
-
-	"github.com/xyzj/gopsu"
 )
 
 // Panic 写error日志并触发panic
@@ -47,7 +43,7 @@ func (fw *WMFrameWorkV2) WriteLog(name, msg string, level int) {
 	if name != "" {
 		name = "[" + name + "] "
 	}
-	msg = name + gopsu.TrimString(msg)
+	msg = name + msg
 	switch level {
 	case 10:
 		fw.wmLog.Debug(msg)
@@ -63,92 +59,92 @@ func (fw *WMFrameWorkV2) WriteLog(name, msg string, level int) {
 }
 
 // StdLogger StdLogger
-type StdLogger struct {
-	LogWriter   io.Writer
-	LogReplacer *strings.Replacer
-	Name        string
-	LogLevel    int
-}
+// type StdLogger struct {
+// 	LogWriter   io.Writer
+// 	LogReplacer *strings.Replacer
+// 	Name        string
+// 	LogLevel    int
+// }
 
-func (l *StdLogger) writeLog(msg string, level int) {
-	if l.LogLevel > 1 && level < l.LogLevel {
-		return
-	}
-	if l.LogReplacer != nil {
-		msg = l.LogReplacer.Replace(msg)
-	}
-	if l.Name != "" {
-		msg = "[" + l.Name + "] " + msg
-	}
-	l.LogWriter.Write(gopsu.Bytes(msg))
-	logOut(level, msg)
-}
+// func (l *StdLogger) writeLog(msg string, level int) {
+// 	if l.LogLevel > 1 && level < l.LogLevel {
+// 		return
+// 	}
+// 	if l.LogReplacer != nil {
+// 		msg = l.LogReplacer.Replace(msg)
+// 	}
+// 	if l.Name != "" {
+// 		msg = "[" + l.Name + "] " + msg
+// 	}
+// 	l.LogWriter.Write(gopsu.Bytes(msg))
+// 	logOut(level, msg)
+// }
 
-// Debug Debug
-func (l *StdLogger) Debug(msgs string) {
-	l.writeLog(msgs, 10)
-}
+// // Debug Debug
+// func (l *StdLogger) Debug(msgs string) {
+// 	l.writeLog(msgs, 10)
+// }
 
-// Info Info
-func (l *StdLogger) Info(msgs string) {
-	l.writeLog(msgs, 20)
-}
+// // Info Info
+// func (l *StdLogger) Info(msgs string) {
+// 	l.writeLog(msgs, 20)
+// }
 
-// Warning Warn
-func (l *StdLogger) Warning(msgs string) {
-	l.writeLog(msgs, 30)
-}
+// // Warning Warn
+// func (l *StdLogger) Warning(msgs string) {
+// 	l.writeLog(msgs, 30)
+// }
 
-// Error Error
-func (l *StdLogger) Error(msgs string) {
-	l.writeLog(msgs, 40)
-}
+// // Error Error
+// func (l *StdLogger) Error(msgs string) {
+// 	l.writeLog(msgs, 40)
+// }
 
-// System System
-func (l *StdLogger) System(msgs string) {
-	l.writeLog(msgs, 90)
-}
+// // System System
+// func (l *StdLogger) System(msgs string) {
+// 	l.writeLog(msgs, 90)
+// }
 
-// DefaultWriter 返回默认writer
-func (l *StdLogger) DefaultWriter() io.Writer {
-	return l.LogWriter
-}
+// // DefaultWriter 返回默认writer
+// func (l *StdLogger) DefaultWriter() io.Writer {
+// 	return l.LogWriter
+// }
 
-// DebugFormat Debug
-func (l *StdLogger) DebugFormat(f string, msg ...interface{}) {
-	if len(msg) == 0 {
-		l.writeLog(f, 10)
-		return
-	}
-	l.writeLog(fmt.Sprintf(f, msg...), 10)
-}
+// // DebugFormat Debug
+// func (l *StdLogger) DebugFormat(f string, msg ...interface{}) {
+// 	if len(msg) == 0 {
+// 		l.writeLog(f, 10)
+// 		return
+// 	}
+// 	l.writeLog(fmt.Sprintf(f, msg...), 10)
+// }
 
-// InfoFormat Info
-func (l *StdLogger) InfoFormat(f string, msg ...interface{}) {
-	if len(msg) == 0 {
-		l.writeLog(f, 20)
-		return
-	}
-	l.writeLog(fmt.Sprintf(f, msg...), 20)
-}
+// // InfoFormat Info
+// func (l *StdLogger) InfoFormat(f string, msg ...interface{}) {
+// 	if len(msg) == 0 {
+// 		l.writeLog(f, 20)
+// 		return
+// 	}
+// 	l.writeLog(fmt.Sprintf(f, msg...), 20)
+// }
 
-// WarningFormat Warn
-func (l *StdLogger) WarningFormat(f string, msg ...interface{}) {
-	if len(msg) == 0 {
-		l.writeLog(f, 30)
-		return
-	}
-	l.writeLog(fmt.Sprintf(f, msg...), 30)
-}
+// // WarningFormat Warn
+// func (l *StdLogger) WarningFormat(f string, msg ...interface{}) {
+// 	if len(msg) == 0 {
+// 		l.writeLog(f, 30)
+// 		return
+// 	}
+// 	l.writeLog(fmt.Sprintf(f, msg...), 30)
+// }
 
-// ErrorFormat Error
-func (l *StdLogger) ErrorFormat(f string, msg ...interface{}) {
-	if len(msg) == 0 {
-		l.writeLog(f, 40)
-		return
-	}
-	l.writeLog(fmt.Sprintf(f, msg...), 40)
-}
+// // ErrorFormat Error
+// func (l *StdLogger) ErrorFormat(f string, msg ...interface{}) {
+// 	if len(msg) == 0 {
+// 		l.writeLog(f, 40)
+// 		return
+// 	}
+// 	l.writeLog(fmt.Sprintf(f, msg...), 40)
+// }
 
 // // SystemFormat System
 // func (l *StdLogger) SystemFormat(f string, msg ...interface{}) {
@@ -156,5 +152,11 @@ func (l *StdLogger) ErrorFormat(f string, msg ...interface{}) {
 // 		l.writeLog(fmt.Sprintf("%v", msg), 90)
 // 	} else {
 // 		l.writeLog(fmt.Sprintf(f, msg...), 90)
+// 	}
+// }
+
+// func logOut(level int, msg string) {
+// 	if *logLevel > 10 && level >= 40 {
+// 		println(time.Now().Format(logger.ShortTimeFormat) + msg)
 // 	}
 // }

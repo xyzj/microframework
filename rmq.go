@@ -147,7 +147,7 @@ func (fw *WMFrameWorkV2) newMQConsumerV2(queueAutoDel bool, bindkeys []string, r
 
 	fw.rmqCtl.queue = fw.rootPath + "_" + fw.serverName
 	if fw.rmqCtl.queueRandom {
-		fw.rmqCtl.queue += "_" + MD5Worker.Hash(gopsu.Bytes(time.Now().Format("150405000")))
+		fw.rmqCtl.queue += "_" + gopsu.GetRandomString(19, true)
 		fw.rmqCtl.durable = false
 		fw.rmqCtl.autodel = true
 	}
@@ -184,11 +184,7 @@ func (fw *WMFrameWorkV2) newMQConsumer(queueAutoDel bool) bool {
 		fw.rmqCtl.durable,
 		fw.rmqCtl.autodel,
 		false)
-	fw.rmqCtl.mqConsumer.SetLogger(&StdLogger{
-		Name:        "MQC",
-		LogReplacer: strings.NewReplacer("[", "", "]", ""),
-		LogWriter:   fw.coreWriter,
-	})
+	fw.rmqCtl.mqConsumer.SetLogger(fw.wmLog)
 	if fw.rmqCtl.usetls {
 		return fw.rmqCtl.mqConsumer.StartTLS(&tls.Config{InsecureSkipVerify: true})
 	}
@@ -332,9 +328,9 @@ func (fw *WMFrameWorkV2) WriteRabbitMQ(key string, value []byte, expire time.Dur
 	// }
 	if len(msgproto) > 0 {
 		// fw.WriteInfo("MQP", "S:"+key+"|"+gopsu.PB2String(msgFromBytes(value, msgproto[0])))
-		fw.WriteInfo("MQP", "S:"+key+"|"+msgFromBytes(value, msgproto[0]))
+		fw.WriteInfo("RMQ", "S:"+key+"|"+msgFromBytes(value, msgproto[0]))
 	} else {
-		fw.WriteInfo("MQP", "S:"+key+"|"+string(value))
+		fw.WriteInfo("RMQ", "S:"+key+"|"+string(value))
 	}
 	return nil
 }

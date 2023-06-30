@@ -336,7 +336,6 @@ func (fw *WMFrameWorkV2) newHTTPService(r *gin.Engine) {
 			vipUsers = ss
 		}
 	}
-	gin.DefaultWriter = fw.httpWriter
 	var err error
 	// if *debug || *cert == "" || *key == "" {
 	// 	err = fw.listenAndServeTLS(*webPort, r, "", "", "")
@@ -373,7 +372,6 @@ func (fw *WMFrameWorkV2) listenAndServeTLS(port int, h *gin.Engine, certfile, ke
 		WriteTimeout: st,
 		IdleTimeout:  st,
 	}
-	// writer := io.MultiWriter(os.Stdout, fw.httpWriter)
 	// 启动http服务
 	if certfile == "" && keyfile == "" {
 		// fmt.Fprintf(writer, "%s [HTTP] Success start HTTP server at :%d\n", time.Now().Format(gopsu.ShortTimeFormat), port)
