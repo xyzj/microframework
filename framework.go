@@ -24,6 +24,7 @@ import (
 	"github.com/xyzj/gopsu/godaemon"
 	json "github.com/xyzj/gopsu/json"
 	"github.com/xyzj/gopsu/logger"
+	"github.com/xyzj/gopsu/mapfx"
 
 	// 载入资源
 	_ "embed"
@@ -104,11 +105,8 @@ func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
 		chanRegDone:  make(chan struct{}, 2),
 		cacheHead:    gopsu.CalcCRC32String([]byte("microsvrv2")),
 		cacheLocker:  &sync.Map{},
-		ft: &fixedToken{
-			cache:  make(map[string]string),
-			locker: &sync.RWMutex{},
-		},
-		mapEtcd:      &mapETCD{locker: sync.RWMutex{}, data: make(map[string]*EtcdInfo)},
+		ft:           mapfx.NewBaseMap[string](),
+		mapEtcd:      mapfx.NewStructMap[string, EtcdInfo](), //     &mapETCD{locker: sync.RWMutex{}, data: make(map[string]*EtcdInfo)},
 		httpProtocol: "http://",
 	}
 	// 处置版本，检查机器码

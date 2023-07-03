@@ -5,68 +5,66 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/mohae/deepcopy"
 	"github.com/xyzj/gopsu"
 	"github.com/xyzj/gopsu/json"
 	"github.com/xyzj/gopsu/loopfunc"
 )
 
-type mapETCD struct {
-	locker sync.RWMutex
-	data   map[string]*EtcdInfo
-}
+// type mapETCD struct {
+// 	locker sync.RWMutex
+// 	data   map[string]*EtcdInfo
+// }
 
-func (m *mapETCD) store(key string, value *EtcdInfo) {
-	if value.Fulladdr == "" {
-		value.Fulladdr = fmt.Sprintf("%s://%s:%s", value.Intfc, value.IP, value.Port)
-	}
-	m.locker.Lock()
-	m.data[key] = value
-	m.locker.Unlock()
-}
-func (m *mapETCD) update(key string, t int64) {
-	m.locker.Lock()
-	m.data[key].TimeUpdate = t
-	m.locker.Unlock()
-}
-func (m *mapETCD) delete(key string) {
-	m.locker.Lock()
-	delete(m.data, key)
-	m.locker.Unlock()
-}
-func (m *mapETCD) haskey(key string) bool {
-	m.locker.RLock()
-	_, ok := m.data[key]
-	m.locker.RUnlock()
-	return ok
-}
-func (m *mapETCD) xrange(f func(key string, value *EtcdInfo) bool) {
-	m.locker.RLock()
-	x := deepcopy.Copy(m.data).(map[string]*EtcdInfo)
-	m.locker.RUnlock()
-	for k, v := range x {
-		if !f(k, v) {
-			break
-		}
-	}
-}
-func (m *mapETCD) load(key string) (*EtcdInfo, bool) {
-	m.locker.RLock()
-	v, ok := m.data[key]
-	m.locker.RUnlock()
-	if ok {
-		return v, true
-	}
-	return nil, false
-}
-func (m *mapETCD) clean() {
-	m.locker.Lock()
-	m.data = make(map[string]*EtcdInfo)
-	m.locker.Unlock()
-}
+// func (m *mapETCD) Store(key string, value *EtcdInfo) {
+// 	if value.Fulladdr == "" {
+// 		value.Fulladdr = fmt.Sprintf("%s://%s:%s", value.Intfc, value.IP, value.Port)
+// 	}
+// 	m.locker.Lock()
+// 	m.data[key] = value
+// 	m.locker.Unlock()
+// }
+// func (m *mapETCD) Update(key string, t int64) {
+// 	m.locker.Lock()
+// 	m.data[key].TimeUpdate = t
+// 	m.locker.Unlock()
+// }
+// func (m *mapETCD) Delete(key string) {
+// 	m.locker.Lock()
+// 	delete(m.data, key)
+// 	m.locker.Unlock()
+// }
+// func (m *mapETCD) Has(key string) bool {
+// 	m.locker.RLock()
+// 	_, ok := m.data[key]
+// 	m.locker.RUnlock()
+// 	return ok
+// }
+// func (m *mapETCD) ForEach(f func(key string, value *EtcdInfo) bool) {
+// 	m.locker.RLock()
+// 	x := deepcopy.Copy(m.data).(map[string]*EtcdInfo)
+// 	m.locker.RUnlock()
+// 	for k, v := range x {
+// 		if !f(k, v) {
+// 			break
+// 		}
+// 	}
+// }
+// func (m *mapETCD) Load(key string) (*EtcdInfo, bool) {
+// 	m.locker.RLock()
+// 	v, ok := m.data[key]
+// 	m.locker.RUnlock()
+// 	if ok {
+// 		return v, true
+// 	}
+// 	return nil, false
+// }
+// func (m *mapETCD) Clean() {
+// 	m.locker.Lock()
+// 	m.data = make(map[string]*EtcdInfo)
+// 	m.locker.Unlock()
+// }
 
 // type etcdInfoRedis struct {
 // 	update   int64
@@ -150,22 +148,30 @@ func (fw *WMFrameWorkV2) etcdRedis(etcd *optEtcd) {
 				// fw.mapEtcd.delete(v)
 				continue
 			}
-			if fw.mapEtcd.haskey(v) {
-				fw.mapEtcd.update(v, t)
+			if d, ok := fw.mapEtcd.Load(v); ok {
+				d.TimeUpdate = t
+				fw.mapEtcd.Store(v, d)
 				continue
 			}
+			// if fw.mapEtcd.Has(v) {
+			// 	fw.mapEtcd.update(v, t)
+			// 	continue
+			// }
 			body := &EtcdInfo{}
 			err = json.UnmarshalFromString(b, body)
 			if err != nil {
 				continue
 			}
 			body.TimeUpdate = t
-			fw.mapEtcd.store(v, body)
+			if body.Fulladdr == "" {
+				body.Fulladdr = fmt.Sprintf("%s://%s:%s", body.Intfc, body.IP, body.Port)
+			}
+			fw.mapEtcd.Store(v, body)
 		}
 		// 清理旧的
-		fw.mapEtcd.xrange(func(key string, value *EtcdInfo) bool {
+		fw.mapEtcd.ForEach(func(key string, value *EtcdInfo) bool {
 			if value.TimeUpdate != t {
-				fw.mapEtcd.delete(key)
+				fw.mapEtcd.Delete(key)
 			}
 			return true
 		})
@@ -198,7 +204,7 @@ func (fw *WMFrameWorkV2) redisPicker(svrName string) (string, error) {
 // AllServices 返回所有服务列表
 func (fw *WMFrameWorkV2) redisAllServices() (string, error) {
 	var s = make(map[string][]string)
-	fw.mapEtcd.xrange(func(key string, value *EtcdInfo) bool {
+	fw.mapEtcd.ForEach(func(key string, value *EtcdInfo) bool {
 		s[key] = []string{
 			// fmt.Sprintf("%s://%s:%s", v.EtcdInfo.Intfc, v.EtcdInfo.IP, v.EtcdInfo.Port),
 			value.Fulladdr,
@@ -215,7 +221,7 @@ func (fw *WMFrameWorkV2) redisAllServices() (string, error) {
 func (fw *WMFrameWorkV2) redisPickerDetail(svrName string) (string, error) {
 	addr := ""
 	err := fmt.Errorf(`no matching server was found with the name %s`, svrName)
-	fw.mapEtcd.xrange(func(key string, value *EtcdInfo) bool {
+	fw.mapEtcd.ForEach(func(key string, value *EtcdInfo) bool {
 		if value.Name == svrName {
 			addr = value.Fulladdr
 			err = nil
@@ -229,7 +235,7 @@ func (fw *WMFrameWorkV2) redisPickerDetail(svrName string) (string, error) {
 // RedisETCDKeys 循环
 func (fw *WMFrameWorkV2) RedisETCDKeys() []string {
 	ss := make([]string, 0)
-	fw.mapEtcd.xrange(func(key string, value *EtcdInfo) bool {
+	fw.mapEtcd.ForEach(func(key string, value *EtcdInfo) bool {
 		ss = append(ss, key)
 		return true
 	})

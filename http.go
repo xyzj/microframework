@@ -531,7 +531,7 @@ func (fw *WMFrameWorkV2) DoRequest(req *http.Request) (int, []byte, map[string]s
 //	username：用于获取固定token的用户名
 func (fw *WMFrameWorkV2) DoRequestWithFixedToken(req *http.Request, timeo time.Duration, username string) (int, []byte, map[string]string, error) {
 	if req.Header.Get("User-Token") == "" {
-		uuid, ok := fw.ft.Get(username)
+		uuid, ok := fw.ft.Load(username)
 		if !ok {
 			uuid, ok = fw.GoUUID("", username)
 			if !ok {
@@ -540,11 +540,12 @@ func (fw *WMFrameWorkV2) DoRequestWithFixedToken(req *http.Request, timeo time.D
 		}
 		req.Header.Set("User-Token", uuid)
 	}
-	sc, b, h, err := fw.DoRequestWithTimeout(req, timeo)
-	if sc == http.StatusUnauthorized {
-		fw.ft.Del(username)
-	}
-	return sc, b, h, err
+	return fw.DoRequestWithTimeout(req, timeo)
+	// sc, b, h, err := fw.DoRequestWithTimeout(req, timeo)
+	// if sc == http.StatusUnauthorized {
+	// 	fw.ft.Delete(username)
+	// }
+	// return sc, b, h, err
 
 }
 func (fw *WMFrameWorkV2) pageModCheck(c *gin.Context) {
@@ -842,10 +843,10 @@ func (fw *WMFrameWorkV2) RenewToken() gin.HandlerFunc {
 func (fw *WMFrameWorkV2) GoUUID(uuid, username string) (string, bool) {
 	// 若提交的uuid=="", 则清除缓存，强制查询
 	if uuid == "" {
-		fw.ft.Del(username)
+		fw.ft.Delete(username)
 	}
 	// 若找到缓存的id，返回
-	if uid, ok := fw.ft.Get(username); ok {
+	if uid, ok := fw.ft.Load(username); ok {
 		return uid, true
 	}
 	// 没找到缓存id，进行查询
@@ -871,7 +872,7 @@ func (fw *WMFrameWorkV2) GoUUID(uuid, username string) (string, bool) {
 		return "", false
 	}
 	// 缓存
-	fw.ft.Set(username, b.String())
+	fw.ft.Store(username, b.String())
 	return b.String(), true
 }
 

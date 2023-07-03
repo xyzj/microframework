@@ -15,6 +15,7 @@ import (
 	"github.com/xyzj/gopsu"
 	"github.com/xyzj/gopsu/cache"
 	"github.com/xyzj/gopsu/logger"
+	"github.com/xyzj/gopsu/mapfx"
 	"gorm.io/gorm"
 )
 
@@ -171,44 +172,19 @@ type OptionFrameWorkV2 struct {
 	ExpandFuncs []func()
 }
 
-type fixedToken struct {
-	cache  map[string]string
-	locker *sync.RWMutex
-}
-
-func (ft *fixedToken) Set(username, uuid string) {
-	ft.locker.Lock()
-	ft.cache[username] = uuid
-	ft.locker.Unlock()
-}
-func (ft *fixedToken) Del(username string) {
-	ft.locker.Lock()
-	delete(ft.cache, username)
-	ft.locker.Unlock()
-}
-func (ft *fixedToken) Get(username string) (string, bool) {
-	ft.locker.RLock()
-	defer ft.locker.RUnlock()
-	x, ok := ft.cache[username]
-	if !ok {
-		return "", false
-	}
-	return x, true
-}
-
 // WMFrameWorkV2 v2版微服务框架
 type WMFrameWorkV2 struct {
-	chanSSLRenew chan struct{}
-	chanRegDone  chan struct{}
-	cacheLocker  *sync.Map
-	cacheMem     *cache.XCache
-	ft           *fixedToken // 固定token
-	mapEtcd      *mapETCD
-	reqTimeo     time.Duration
-	wmConf       *gopsu.ConfData // 配置
-	wmLog        logger.Logger   // 日志
 	// coreWriter     io.Writer
+	dborms         []*gorm.DB
+	chanSSLRenew   chan struct{}
+	chanRegDone    chan struct{}
+	wmLog          logger.Logger // 日志
 	httpWriter     io.Writer
+	cacheLocker    *sync.Map
+	cacheMem       *cache.XCache
+	ft             *mapfx.BaseMap[string]             // 固定token
+	mapEtcd        *mapfx.StructMap[string, EtcdInfo] //*mapETCD
+	wmConf         *gopsu.ConfData                    // 配置
 	etcdCtl        *etcdConfigure
 	redisCtl       *redisConfigure
 	dbCtl          *dbConfigure
@@ -217,8 +193,8 @@ type WMFrameWorkV2 struct {
 	mqttCtl        *mqttConfigure
 	httpClientPool *http.Client
 	cnf            *OptionFrameWorkV2
-	dborms         []*gorm.DB
 	tokenLife      time.Duration
+	reqTimeo       time.Duration
 	serverName     string
 	serverAlias    string
 	loggerMark     string
