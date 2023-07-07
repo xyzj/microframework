@@ -2,6 +2,8 @@ package wmfw
 
 import (
 	"fmt"
+
+	"github.com/xyzj/gopsu/logger"
 )
 
 // Panic 写error日志并触发panic
@@ -56,6 +58,11 @@ func (fw *WMFrameWorkV2) WriteLog(name, msg string, level int) {
 	case 90:
 		fw.wmLog.System(msg)
 	}
+}
+
+// CoreLogger 获取corelogger
+func (fw *WMFrameWorkV2) CoreLogger() logger.Logger {
+	return fw.wmLog
 }
 
 // StdLogger StdLogger

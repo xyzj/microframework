@@ -101,6 +101,7 @@ func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
 				},
 			},
 		},
+		basicAuth:    loadBasicAuth(),
 		chanSSLRenew: make(chan struct{}, 2),
 		chanRegDone:  make(chan struct{}, 2),
 		cacheHead:    gopsu.CalcCRC32String([]byte("microsvrv2")),

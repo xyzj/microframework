@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 	"github.com/tidwall/sjson"
 	"github.com/xyzj/gopsu"
 )
@@ -58,15 +58,23 @@ func (fw *WMFrameWorkV2) newRedisClient() bool {
 		return false
 	}
 	fw.redisCtl.client = redis.NewClient(&redis.Options{
-		Addr:         fw.redisCtl.addr,
-		Password:     fw.redisCtl.pwd,
-		DB:           fw.redisCtl.database,
-		DialTimeout:  redisCtxTimeo,
-		MinIdleConns: 3,
-		IdleTimeout:  time.Second * 30,
+		Addr:            fw.redisCtl.addr,
+		Password:        fw.redisCtl.pwd,
+		DB:              fw.redisCtl.database,
+		PoolFIFO:        true,
+		MinIdleConns:    3,
+		ConnMaxIdleTime: time.Minute,
+		OnConnect: func(ctx context.Context, cn *redis.Conn) error {
+			if !fw.redisCtl.ready {
+				fw.redisCtl.ready = true
+				fw.WriteSystem("REDIS", fmt.Sprintf("Connect to server %s is ready, use db %d", fw.redisCtl.addr, fw.redisCtl.database))
+			}
+			return nil
+		},
 	})
 	fw.redisCtl.ready = true
 	fw.WriteSystem("REDIS", fmt.Sprintf("Connect to server %s is ready, use db %d", fw.redisCtl.addr, fw.redisCtl.database))
+	// fw.WriteSystem("REDIS", fmt.Sprintf("Connect to server %s is ready, use db %d", fw.redisCtl.addr, fw.redisCtl.database))
 	fw.tryRedisVer()
 	// fw.redisCtl.ready = true
 	// fw.WriteSystem("REDIS", fmt.Sprintf("Success connect to server %s, use db %d", fw.redisCtl.addr, fw.redisCtl.database))
@@ -348,6 +356,9 @@ func (fw *WMFrameWorkV2) logRedisError(err error, formatstr string, params ...in
 	// if strings.Contains(err.Error(), "connect: connection refused") {
 	// fw.redisCtl.ready = false
 	// }
+	if strings.Contains(err.Error(), "dial tcp") {
+		fw.redisCtl.ready = false
+	}
 	params = append(params, err.Error())
 	fw.WriteError("REDIS", fmt.Sprintf(formatstr+"| %s", params...))
 	return err

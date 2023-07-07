@@ -51,6 +51,7 @@ type rabbitConfigure struct {
 	// gpsConsumer 消费者
 	gpsConsumer *mq.Session
 	sender      *mq.RMQProducer
+	cEnable     *bool
 }
 
 func (conf *rabbitConfigure) show(rootPath string) string {
@@ -167,7 +168,7 @@ func (fw *WMFrameWorkV2) newMQConsumerV2(queueAutoDel bool, bindkeys []string, r
 	if fw.rmqCtl.usetls {
 		opt.TLSConf = &tls.Config{InsecureSkipVerify: true}
 	}
-	mq.NewRMQConsumer(opt, fw.wmLog, recv)
+	fw.rmqCtl.cEnable = mq.NewRMQConsumer(opt, fw.wmLog, recv)
 }
 
 // Newfw.rmqCtl.mqConsumer Newfw.rmqCtl.mqConsumer
@@ -254,18 +255,20 @@ func (fw *WMFrameWorkV2) recvRabbitMQ(f func(key string, body []byte), msgproto 
 
 // ProducerIsReady 返回ProducerIsReady可用状态
 func (fw *WMFrameWorkV2) ProducerIsReady() bool {
-	if fw.rmqCtl.mqProducer != nil {
-		return fw.rmqCtl.mqProducer.IsReady()
-	}
-	return false
+	return fw.rmqCtl.sender.Enable()
+	// if fw.rmqCtl.mqProducer != nil {
+	// 	return fw.rmqCtl.mqProducer.IsReady()
+	// }
+	// return false
 }
 
 // ConsumerIsReady 返回ProducerIsReady可用状态
 func (fw *WMFrameWorkV2) ConsumerIsReady() bool {
-	if fw.rmqCtl.mqConsumer != nil {
-		return fw.rmqCtl.mqConsumer.IsReady()
-	}
-	return false
+	return *fw.rmqCtl.cEnable
+	// if fw.rmqCtl.mqConsumer != nil {
+	// 	return fw.rmqCtl.mqConsumer.IsReady()
+	// }
+	// return false
 }
 
 // AppendRootPathRabbit 向rabbitmq的key追加头

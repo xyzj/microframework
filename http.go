@@ -899,7 +899,7 @@ func (fw *WMFrameWorkV2) DealWithSQLError(c *gin.Context, err error) bool {
 // xfileargs 为选填，但填充必须为双数，key1,value1,key2,value2,...样式
 func (fw *WMFrameWorkV2) DealWithXFileMessage(c *gin.Context, detail string, xfile int, xfileArgs ...string) {
 	err := &ErrorV2{
-		Status: 400,
+		Status: 200,
 		Detail: detail,
 		Xfile:  xfile,
 	}
@@ -924,7 +924,7 @@ func (fw *WMFrameWorkV2) DealWithFailedMessage(c *gin.Context, detail string, st
 	if len(status) > 0 && status[0] == 2 {
 		c.Set("xfile", 10000)
 	}
-	c.AbortWithStatusJSON(400, c.Keys)
+	c.AbortWithStatusJSON(200, c.Keys)
 }
 
 // DealWithSuccessOK 处理标准成功信息，可选添加detail信息
@@ -1106,66 +1106,23 @@ func (fw *WMFrameWorkV2) DealWithImage(c *gin.Context, data []byte, filename str
 	c.Writer.Write(data)
 }
 
-// type logParam struct {
-// 	timer      time.Duration
-// 	keys       map[string]any
-// 	jsn        []byte
-// 	clientIP   string
-// 	method     string
-// 	path       string
-// 	token      string
-// 	body       string
-// 	username   string
-// 	statusCode int
-// }
+// BasicAuthAccounts 返回basicauth信息
+func (fw *WMFrameWorkV2) BasicAuthAccounts() gin.Accounts {
+	return fw.basicAuth
+}
 
-// // LogToWriter LogToWriter
-// func LogToWriter(w io.Writer) gin.HandlerFunc {
-// 	// 设置io
-// 	gin.DefaultWriter = os.Stdout
-// 	gin.DefaultErrorWriter = w
-// 	chanlog := make(chan *logParam, 200)
-// 	go loopfunc.LoopFunc(func(params ...interface{}) {
-// 		for {
-// 			select {
-// 			case a := <-chanlog:
-// 				if len(a.keys) > 0 {
-// 					a.jsn, _ = json.Marshal(a.keys)
-// 				}
-// 				if a.path == "/showroutes" {
-// 					a.jsn = []byte{}
-// 				}
-// 				if a.token != "" {
-// 					if a.username != "" {
-// 						a.path = "(" + a.username + "-" + gopsu.CalcCRC32String(gopsu.Bytes(a.token)) + ")" + a.path
-// 					} else {
-// 						a.path = "(" + gopsu.CalcCRC32String(gopsu.Bytes(a.token)) + ")" + a.path
-// 					}
-// 				}
-// 				if a.body != "" {
-// 					a.path += " |" + a.body
-// 				}
-// 				b := gopsu.Bytes(fmt.Sprintf("|%3d |%-13s|%-15s|%-4s %s ▸%s", a.statusCode, a.timer, a.clientIP, a.method, a.path, a.jsn))
-// 				w.Write(b)
-// 				// logOut(20, gopsu.String(b))
-// 			}
-// 		}
-// 	}, "http log", w)
-// 	return func(c *gin.Context) {
-// 		// |,(,) 124,40,41,32
-// 		start := time.Now()
-// 		c.Next()
-// 		// Stop timer
-// 		chanlog <- &logParam{
-// 			timer:      time.Since(start),
-// 			path:       c.Request.URL.Path,
-// 			token:      c.GetHeader("User-Token"),
-// 			body:       c.Param("_body"),
-// 			clientIP:   c.ClientIP(),
-// 			method:     c.Request.Method,
-// 			statusCode: c.Writer.Status(),
-// 			username:   c.Param("_userTokenName"),
-// 			keys:       c.Keys,
-// 		}
-// 	}
-// }
+func loadBasicAuth() gin.Accounts {
+	x := gin.Accounts{}
+	b, err := ioutil.ReadFile(".jesus")
+	if err == nil {
+		err = json.UnmarshalFromString(gopsu.DecodeString(string(b)), &x)
+		if err == nil {
+			return x
+		}
+	}
+	return gin.Accounts{
+		"luwak":   "programs33810",
+		"xyzj":    "rodoss2-12",
+		"Iamarat": "mynameisJerry",
+	}
+}
