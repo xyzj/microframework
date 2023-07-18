@@ -320,9 +320,7 @@ func (fw *WMFrameWorkV2) newHTTPService(r *gin.Engine) {
 		}
 	}
 	if sss != "" {
-		r.GET("/showroutes", gin.BasicAuth(gin.Accounts{
-			"whowants2seethis?": "iam,yourcreator.",
-		}),
+		r.GET("/showroutes", ginmiddleware.BasicAuth("whowants2seethis?:iam,yourcreator."),
 			func(c *gin.Context) {
 				c.Header("Content-Type", "text/html")
 				c.Status(http.StatusOK)
@@ -878,6 +876,7 @@ func (fw *WMFrameWorkV2) GoUUID(uuid, username string) (string, bool) {
 
 // DealWithSQLError 统一处理sql执行错误问题
 func (fw *WMFrameWorkV2) DealWithSQLError(c *gin.Context, err error) bool {
+	delete(c.Keys, "user")
 	if err != nil {
 		fw.WriteError("DB", c.Request.RequestURI+"|"+err.Error())
 		if strings.Contains(err.Error(), "Duplicate entry") {
@@ -898,6 +897,7 @@ func (fw *WMFrameWorkV2) DealWithSQLError(c *gin.Context, err error) bool {
 // DealWithXFileMessage 处理自定义失败信息
 // xfileargs 为选填，但填充必须为双数，key1,value1,key2,value2,...样式
 func (fw *WMFrameWorkV2) DealWithXFileMessage(c *gin.Context, detail string, xfile int, xfileArgs ...string) {
+	delete(c.Keys, "user")
 	err := &ErrorV2{
 		Status: 200,
 		Detail: detail,
@@ -915,6 +915,7 @@ func (fw *WMFrameWorkV2) DealWithXFileMessage(c *gin.Context, detail string, xfi
 
 // DealWithFailedMessage 处理标准失败信息
 func (fw *WMFrameWorkV2) DealWithFailedMessage(c *gin.Context, detail string, status ...int) {
+	delete(c.Keys, "user")
 	if len(status) == 0 {
 		c.Set("status", 0)
 	} else {
@@ -929,6 +930,7 @@ func (fw *WMFrameWorkV2) DealWithFailedMessage(c *gin.Context, detail string, st
 
 // DealWithSuccessOK 处理标准成功信息，可选添加detail信息
 func (fw *WMFrameWorkV2) DealWithSuccessOK(c *gin.Context, detail ...string) {
+	delete(c.Keys, "user")
 	c.Set("status", 1)
 	l := len(detail)
 	if l == 1 {
@@ -1104,25 +1106,4 @@ func (fw *WMFrameWorkV2) DealWithImage(c *gin.Context, data []byte, filename str
 	}
 	c.Header("Cache-Control", "private, max-age=86400")
 	c.Writer.Write(data)
-}
-
-// BasicAuthAccounts 返回basicauth信息
-func (fw *WMFrameWorkV2) BasicAuthAccounts() gin.Accounts {
-	return fw.basicAuth
-}
-
-func loadBasicAuth() gin.Accounts {
-	x := gin.Accounts{}
-	b, err := ioutil.ReadFile(".jesus")
-	if err == nil {
-		err = json.UnmarshalFromString(gopsu.DecodeString(string(b)), &x)
-		if err == nil {
-			return x
-		}
-	}
-	return gin.Accounts{
-		"luwak":   "programs33810",
-		"xyzj":    "rodoss2-12",
-		"Iamarat": "mynameisJerry",
-	}
 }

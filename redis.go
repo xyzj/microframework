@@ -67,7 +67,7 @@ func (fw *WMFrameWorkV2) newRedisClient() bool {
 		OnConnect: func(ctx context.Context, cn *redis.Conn) error {
 			if !fw.redisCtl.ready {
 				fw.redisCtl.ready = true
-				fw.WriteSystem("REDIS", fmt.Sprintf("Connect to server %s is ready, use db %d", fw.redisCtl.addr, fw.redisCtl.database))
+				fw.WriteSystem("REDIS", fmt.Sprintf("Connect to server %s is ready", fw.redisCtl.addr))
 			}
 			return nil
 		},
@@ -315,6 +315,22 @@ func (fw *WMFrameWorkV2) ReadAllRedis(key string) (map[string]string, error) {
 		}
 	}
 	return s, nil
+}
+
+// ReadRedisPTTL 读取key的有效期，返回时间
+func (fw *WMFrameWorkV2) ReadRedisPTTL(key string) time.Duration {
+	if !fw.redisCtl.ready {
+		return 0
+	}
+	key = fw.AppendRootPathRedis(key)
+	ctx, cancel := context.WithTimeout(context.Background(), redisCtxTimeo)
+	defer cancel()
+	val := fw.redisCtl.client.PTTL(ctx, key)
+	if val.Err() != nil {
+		fw.logRedisDebug(val.Err(), "failed read redis pttl: %s", key)
+		return 0
+	}
+	return val.Val()
 }
 
 // RedisClient 返回redis客户端

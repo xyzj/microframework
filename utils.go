@@ -180,7 +180,6 @@ type WMFrameWorkV2 struct {
 	chanRegDone    chan struct{}
 	wmLog          logger.Logger // 日志
 	httpWriter     io.Writer
-	basicAuth      gin.Accounts
 	cacheLocker    *sync.Map
 	cacheMem       *cache.XCache
 	ft             *mapfx.BaseMap[string]             // 固定token
