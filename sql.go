@@ -1,7 +1,6 @@
 package wmfw
 
 import (
-	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -159,37 +158,34 @@ MAINTAIN:
 			}
 		}()
 		t := time.NewTicker(time.Hour)
-		for {
-			select {
-			case <-t.C:
-				if time.Now().Hour() != 13 {
+		for range t.C {
+			if time.Now().Hour() != 13 {
+				continue
+			}
+			// 重新刷新配置
+			fw.dbCtl.mrgTables = strings.Split(fw.wmConf.GetItemDefault("db_mrg_tables", "", "使用mrg_myisam引擎分表的总表名称，用`,`分割多个总表"), ",")
+			fw.dbCtl.mrgMaxSubTables = gopsu.String2Int(fw.wmConf.GetItemDefault("db_mrg_maxsubtables", "10", "分表子表数量，最小为1"), 10)
+			fw.dbCtl.mrgSubTableSize = gopsu.String2Int64(fw.wmConf.GetItemDefault("db_mrg_subtablesize", "1800", "子表最大磁盘空间容量（MB），当超过该值时，进行分表操作,推荐默认值1800"), 10)
+			if fw.dbCtl.mrgSubTableSize < 1 {
+				fw.dbCtl.mrgSubTableSize = 10
+			}
+			fw.dbCtl.mrgSubTableRows = gopsu.String2Int64(fw.wmConf.GetItemDefault("db_mrg_subtablerows", "4500000", "子表最大行数，当超过该值时，进行分表操作，推荐默认值4500000"), 10)
+			fw.wmConf.Save()
+			for _, v := range fw.dbCtl.mrgTables {
+				tableName := strings.TrimSpace(v)
+				if tableName == "" {
 					continue
 				}
-				// 重新刷新配置
-				fw.dbCtl.mrgTables = strings.Split(fw.wmConf.GetItemDefault("db_mrg_tables", "", "使用mrg_myisam引擎分表的总表名称，用`,`分割多个总表"), ",")
-				fw.dbCtl.mrgMaxSubTables = gopsu.String2Int(fw.wmConf.GetItemDefault("db_mrg_maxsubtables", "10", "分表子表数量，最小为1"), 10)
-				fw.dbCtl.mrgSubTableSize = gopsu.String2Int64(fw.wmConf.GetItemDefault("db_mrg_subtablesize", "1800", "子表最大磁盘空间容量（MB），当超过该值时，进行分表操作,推荐默认值1800"), 10)
-				if fw.dbCtl.mrgSubTableSize < 1 {
-					fw.dbCtl.mrgSubTableSize = 10
+				_, _, size, rows, err := fw.dbCtl.client.ShowTableInfo(tableName)
+				if err != nil {
+					fw.WriteError("DB", "SHOW table "+tableName+" "+err.Error())
+					continue
 				}
-				fw.dbCtl.mrgSubTableRows = gopsu.String2Int64(fw.wmConf.GetItemDefault("db_mrg_subtablerows", "4500000", "子表最大行数，当超过该值时，进行分表操作，推荐默认值4500000"), 10)
-				fw.wmConf.Save()
-				for _, v := range fw.dbCtl.mrgTables {
-					tableName := strings.TrimSpace(v)
-					if tableName == "" {
-						continue
-					}
-					_, _, size, rows, err := fw.dbCtl.client.ShowTableInfo(tableName)
+				if size >= fw.dbCtl.mrgSubTableSize || rows >= fw.dbCtl.mrgSubTableRows {
+					err = fw.dbCtl.client.MergeTable(tableName, fw.dbCtl.mrgMaxSubTables)
 					if err != nil {
-						fw.WriteError("DB", "SHOW table "+tableName+" "+err.Error())
+						fw.WriteError("DB", "MRG table "+tableName+" "+err.Error())
 						continue
-					}
-					if size >= fw.dbCtl.mrgSubTableSize || rows >= fw.dbCtl.mrgSubTableRows {
-						err = fw.dbCtl.client.MergeTable(tableName, fw.dbCtl.mrgMaxSubTables)
-						if err != nil {
-							fw.WriteError("DB", "MRG table "+tableName+" "+err.Error())
-							continue
-						}
 					}
 				}
 			}
@@ -217,7 +213,7 @@ func (fw *WMFrameWorkV2) dbUpgrade(sql string) bool {
 		return false
 	}
 	// 校验升级脚本
-	b, _ := ioutil.ReadFile(upsql)
+	b, _ := os.ReadFile(upsql)
 	if gopsu.String(b) == gopsu.GetMD5(sql) { // 升级脚本已执行过，不再重复升级
 		return false
 	}
@@ -242,7 +238,7 @@ func (fw *WMFrameWorkV2) dbUpgrade(sql string) bool {
 		}
 	}
 	// 标记脚本，下次启动不再重复升级
-	err = ioutil.WriteFile(upsql, gopsu.Bytes(gopsu.GetMD5(sql)), 0664)
+	err = os.WriteFile(upsql, gopsu.Bytes(gopsu.GetMD5(sql)), 0664)
 	if err != nil {
 		fw.WriteError("DBUP", "mark database update error: "+err.Error())
 	}

@@ -69,24 +69,21 @@ func (fw *WMFrameWorkV2) gpsRecv() {
 		if err != nil {
 			panic(err)
 		}
-		for {
-			select {
-			case d := <-rcvMQ:
-				if d.ContentType == "" && d.DeliveryTag == 0 { // 接收错误，可能服务断开
-					panic(errors.New("Rcv Err: Possible service error"))
-				}
-				fw.WriteDebug("MQGPS", "Debug-R:"+d.RoutingKey+"|"+gopsu.String(d.Body))
-				gpsData := gjson.ParseBytes(d.Body)
-				if math.Abs(float64(gpsData.Get("cache_time").Int()-time.Now().Unix())) < 30 {
-					switch fw.gpsTimer {
-					case 0: // 不校时，不存在这个情况，姑且写在这里
-					case 1: // 50～900s范围校时
-						if math.Abs(float64(time.Now().Unix()-gpsData.Get("gps_time").Int())) > 50 && math.Abs(float64(time.Now().Unix()-gpsData.Get("gps_time").Int())) < 900 {
-							fw.modifyTime(gpsData.Get("gps_time").Int())
-						}
-					case 2: // 强制校时
+		for d := range rcvMQ {
+			if d.ContentType == "" && d.DeliveryTag == 0 { // 接收错误，可能服务断开
+				panic(errors.New("rcv err: possible service error"))
+			}
+			fw.WriteDebug("MQGPS", "Debug-R:"+d.RoutingKey+"|"+gopsu.String(d.Body))
+			gpsData := gjson.ParseBytes(d.Body)
+			if math.Abs(float64(gpsData.Get("cache_time").Int()-time.Now().Unix())) < 30 {
+				switch fw.gpsTimer {
+				case 0: // 不校时，不存在这个情况，姑且写在这里
+				case 1: // 50～900s范围校时
+					if math.Abs(float64(time.Now().Unix()-gpsData.Get("gps_time").Int())) > 50 && math.Abs(float64(time.Now().Unix()-gpsData.Get("gps_time").Int())) < 900 {
 						fw.modifyTime(gpsData.Get("gps_time").Int())
 					}
+				case 2: // 强制校时
+					fw.modifyTime(gpsData.Get("gps_time").Int())
 				}
 			}
 		}

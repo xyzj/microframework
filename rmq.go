@@ -200,25 +200,22 @@ func (fw *WMFrameWorkV2) recvRabbitMQ(f func(key string, body []byte), msgproto 
 		if err != nil {
 			panic(err)
 		}
-		for {
-			select {
-			case d := <-rcvMQ:
-				if d.ContentType == "" && d.DeliveryTag == 0 { // 接收错误，可能服务断开
-					panic(errors.New("Rcv Err: Possible service error"))
-				}
-				if fw.Debug() {
-					if gjson.ValidBytes(d.Body) {
-						fw.WriteDebug("MQC", "DR:"+fw.rmqCtl.addr+"|"+d.RoutingKey+"|"+gopsu.String(d.Body))
+		for d := range rcvMQ {
+			if d.ContentType == "" && d.DeliveryTag == 0 { // 接收错误，可能服务断开
+				panic(errors.New("rcv err: possible service error"))
+			}
+			if fw.Debug() {
+				if gjson.ValidBytes(d.Body) {
+					fw.WriteDebug("MQC", "DR:"+fw.rmqCtl.addr+"|"+d.RoutingKey+"|"+gopsu.String(d.Body))
+				} else {
+					if msgproto == nil {
+						fw.WriteDebug("MQC", "DR:"+fw.rmqCtl.addr+"|"+d.RoutingKey+"|"+base64.StdEncoding.EncodeToString(d.Body))
 					} else {
-						if msgproto == nil {
-							fw.WriteDebug("MQC", "DR:"+fw.rmqCtl.addr+"|"+d.RoutingKey+"|"+base64.StdEncoding.EncodeToString(d.Body))
-						} else {
-							fw.WriteDebug("MQC", "DR:"+fw.rmqCtl.addr+"|"+d.RoutingKey+"|"+msgFromBytes(d.Body, msgproto[0]))
-						}
+						fw.WriteDebug("MQC", "DR:"+fw.rmqCtl.addr+"|"+d.RoutingKey+"|"+msgFromBytes(d.Body, msgproto[0]))
 					}
 				}
-				f(d.RoutingKey, d.Body)
 			}
+			f(d.RoutingKey, d.Body)
 		}
 	}, "MQC", fw.LogDefaultWriter(), time.Second*20)
 	// RECV:

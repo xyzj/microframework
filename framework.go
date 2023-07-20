@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -147,16 +146,16 @@ func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
 	// fw.httpCert = filepath.Join(fw.baseCAPath, "localhost.pem")
 	// fw.httpKey = filepath.Join(fw.baseCAPath, "localhost-key.pem")
 	if !gopsu.IsExist(fw.tlsRoot) {
-		ioutil.WriteFile(fw.tlsRoot, ca, 0644)
+		os.WriteFile(fw.tlsRoot, ca, 0644)
 	}
 	if !gopsu.IsExist(fw.tlsCert) {
-		ioutil.WriteFile(fw.tlsCert, caCert, 0644)
+		os.WriteFile(fw.tlsCert, caCert, 0644)
 	}
 	if !gopsu.IsExist(fw.tlsKey) {
-		ioutil.WriteFile(fw.tlsKey, caKey, 0644)
+		os.WriteFile(fw.tlsKey, caKey, 0644)
 	}
 	if !gopsu.IsExist(filepath.Join(fw.baseCAPath, "localhost.pfx")) {
-		ioutil.WriteFile(filepath.Join(fw.baseCAPath, "localhost.pfx"), caPfx, 0644)
+		os.WriteFile(filepath.Join(fw.baseCAPath, "localhost.pfx"), caPfx, 0644)
 	}
 	return fw
 }
@@ -386,7 +385,7 @@ func (fw *WMFrameWorkV2) Run(opv2 *OptionFrameWorkV2) {
 	defer func() {
 		if err := recover(); err != nil {
 			fw.WriteError("SYS", fmt.Sprintf("%+v", errors.WithStack(err.(error))))
-			ioutil.WriteFile("crash.log", []byte(fmt.Sprintf("%+v", errors.WithStack(err.(error)))), 0664)
+			os.WriteFile("crash.log", []byte(fmt.Sprintf("%+v", errors.WithStack(err.(error)))), 0664)
 		}
 	}()
 	fw.Start(opv2)

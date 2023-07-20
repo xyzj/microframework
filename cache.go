@@ -2,7 +2,6 @@ package wmfw
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -71,7 +70,7 @@ func (fw *WMFrameWorkV2) WriteCache(t CacheType, cachetag string, data interface
 		case CacheTypeRedis:
 			err = fw.WriteRedis(fw.serverName+"/datacache/"+cachetag, CodeGzip.Compress(b), cacheExpire)
 		case CacheTypeFile:
-			err = ioutil.WriteFile(filepath.Join(gopsu.DefaultCacheDir, cachetag), CodeGzip.Compress(b), 0664)
+			err = os.WriteFile(filepath.Join(gopsu.DefaultCacheDir, cachetag), CodeGzip.Compress(b), 0664)
 		case CacheTypeMEM:
 			fw.cacheMem.Set(cachetag, CodeGzip.Compress(b), cacheExpire)
 		}
@@ -120,7 +119,7 @@ func (fw *WMFrameWorkV2) readCacheData(t CacheType, cachetag string) ([]byte, er
 		s, err = fw.ReadRedis(fw.serverName + "/datacache/" + cachetag)
 		b = []byte(s)
 	case CacheTypeFile:
-		b, err = ioutil.ReadFile(filepath.Join(gopsu.DefaultCacheDir, cachetag))
+		b, err = os.ReadFile(filepath.Join(gopsu.DefaultCacheDir, cachetag))
 	case CacheTypeMEM:
 		if bb, ok := fw.cacheMem.GetAndExpire(cachetag, cacheExpire); ok {
 			b = bb.([]byte)
@@ -137,13 +136,17 @@ func (fw *WMFrameWorkV2) readCacheData(t CacheType, cachetag string) ([]byte, er
 }
 
 func (fw *WMFrameWorkV2) clearCache() {
-	files, err := ioutil.ReadDir(gopsu.DefaultCacheDir)
+	files, err := os.ReadDir(gopsu.DefaultCacheDir)
 	if err != nil {
 		return
 	}
 	tt := time.Now()
-	for _, file := range files {
-		if file.IsDir() {
+	for _, d := range files {
+		if d.IsDir() {
+			continue
+		}
+		file, err := d.Info()
+		if err != nil {
 			continue
 		}
 		switch fw.cacheHead {

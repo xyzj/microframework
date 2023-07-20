@@ -136,8 +136,7 @@ func (fw *WMFrameWorkV2) etcdRedis(etcd *optEtcd) {
 		// 	return nil
 		// }
 		ei.TimeActive = time.Now().Unix()
-		b, _ := json.Marshal(ei)
-		return fw.WriteRedis(key, b, time.Second*12)
+		return fw.WriteRedis(key, fw.Marshal(ei), time.Second*12)
 	}
 	fetcdRead := func() {
 		t := time.Now().Unix()

@@ -2,7 +2,6 @@ package wmfw
 
 import (
 	"bytes"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -50,7 +49,7 @@ func (fw *WMFrameWorkV2) checkMachine() {
 	mfiles := []string{filepath.Join(home, ".firstrun"), filepath.Join(gopsu.JoinPathFromHere(), ".firstrun")}
 	for _, mfile := range mfiles {
 		// 读取文件错误继续尝试下一个
-		if b, err := ioutil.ReadFile(mfile); err == nil {
+		if b, err := os.ReadFile(mfile); err == nil {
 			a := gopsu.DecodeString(gopsu.String(b))
 			if a == "I will never be a memory" || a == machineCode() { // 通过
 				return

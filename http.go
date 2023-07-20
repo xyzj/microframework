@@ -7,7 +7,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"html/template"
-	"io/ioutil"
+	"io"
 	"mime"
 	"net/http"
 	"net/url"
@@ -139,7 +139,7 @@ func apidoc(c *gin.Context) {
 	default:
 		p := gopsu.JoinPathFromHere("docs", "apirecord-"+c.Param("switch")+".html")
 		if gopsu.IsExist(p) {
-			b, _ := ioutil.ReadFile(p)
+			b, _ := os.ReadFile(p)
 			c.Header("Content-Type", "text/html")
 			c.Status(http.StatusOK)
 			c.Writer.Write(b)
@@ -203,25 +203,25 @@ func (fw *WMFrameWorkV2) NewHTTPEngineWithYaagSkip(skip []string, f ...gin.Handl
 		r.Use(f...)
 	}
 	r.GET("/favicon.ico", func(c *gin.Context) {
+		c.Header("Cache-Control", "private, max-age=86400")
 		c.Writer.Write(favicon)
 	})
 	// 基础路由
 	r.GET("/whoami", func(c *gin.Context) {
 		c.String(200, c.ClientIP())
 	})
+	r.GET("/name", func(c *gin.Context) {
+		c.String(200, fw.serverName)
+	})
 	r.GET("/sha256", func(c *gin.Context) {
-		b, err := ioutil.ReadFile(os.Args[0])
+		b, err := os.ReadFile(os.Args[0])
 		if err != nil {
 			c.String(400, err.Error())
 			return
 		}
 		c.String(200, SHA256Worker.Hash(b))
 	})
-	r.GET("/devquotes", ginmiddleware.Page500)
 	r.GET("/health", ginmiddleware.PageDefault)
-	r.GET("/name", func(c *gin.Context) {
-		c.String(200, fw.serverName)
-	})
 	r.GET("/health/mod", fw.pageModCheck)
 	r.POST("/health/mod", fw.pageModCheck)
 	r.GET("/clearlog", fw.CheckRequired("name"), ginmiddleware.Clearlog)
@@ -233,7 +233,7 @@ func (fw *WMFrameWorkV2) NewHTTPEngineWithYaagSkip(skip []string, f ...gin.Handl
 		configInfo["startat"] = fw.startAt
 		configInfo["timer"] = time.Now().Format("2006-01-02 15:04:05 Mon")
 		configInfo["key"] = "服务配置信息"
-		b, _ := ioutil.ReadFile(fw.wmConf.FullPath())
+		b, _ := os.ReadFile(fw.wmConf.FullPath())
 		configInfo["value"] = strings.Split(gopsu.String(b), "\n")
 		c.Header("Content-Type", "text/html")
 		t, _ := template.New("viewconfig").Parse(TPLHEAD + TPLCSS + TPLBODY)
@@ -244,6 +244,26 @@ func (fw *WMFrameWorkV2) NewHTTPEngineWithYaagSkip(skip []string, f ...gin.Handl
 		}
 		h.WriteContentType(c.Writer)
 		h.Render(c.Writer)
+	})
+	r.GET("/crash/:do", func(c *gin.Context) {
+		p := gopsu.JoinPathFromHere(gopsu.GetExecNameWithoutExt() + ".crash.log")
+		if !gopsu.IsExist(p) {
+			c.String(200, "seems good")
+			return
+		}
+		switch c.Param("do") {
+		case "view":
+			b, err := os.ReadFile(p)
+			if err != nil {
+				c.String(200, "read crash file error: "+err.Error())
+				return
+			}
+			c.String(200, string(b))
+		case "download":
+			c.FileAttachment(p, gopsu.GetExecNameWithoutExt()+".crash.log")
+		default:
+			ginmiddleware.Page404(c)
+		}
 	})
 
 	// 静态资源路由
@@ -256,7 +276,7 @@ func (fw *WMFrameWorkV2) NewHTTPEngineWithYaagSkip(skip []string, f ...gin.Handl
 	}
 	// 轻松一下
 	r.GET("/xgame/:game", games.GameGroup)
-
+	r.GET("/devquotes", ginmiddleware.Page500)
 	// apirecord
 	// r.StaticFS("/apirec", http.FS(apirec))
 	r.GET("/apirecord/:switch", apidoc)
@@ -328,7 +348,7 @@ func (fw *WMFrameWorkV2) newHTTPService(r *gin.Engine) {
 			})
 	}
 	// 读取特权名单
-	if b, err := ioutil.ReadFile(gopsu.JoinPathFromHere(".vip")); err == nil {
+	if b, err := os.ReadFile(gopsu.JoinPathFromHere(".vip")); err == nil {
 		ss := strings.Split(gopsu.DecodeString(string(b)), ",")
 		if len(ss) > 0 {
 			vipUsers = ss
@@ -386,7 +406,7 @@ func (fw *WMFrameWorkV2) listenAndServeTLS(port int, h *gin.Engine, certfile, ke
 	}
 	if len(clientca) > 0 {
 		pool := x509.NewCertPool()
-		caCrt, err := ioutil.ReadFile(clientca)
+		caCrt, err := os.ReadFile(clientca)
 		if err == nil {
 			pool.AppendCertsFromPEM(caCrt)
 			tc.ClientCAs = pool
@@ -497,7 +517,7 @@ func (fw *WMFrameWorkV2) DoRequestWithTimeout(req *http.Request, timeo time.Dura
 		return 502, nil, nil, err
 	}
 	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fw.WriteError("HTTP-REQ ERR", fmt.Sprintf("%s %s▸%s", req.Method, req.URL.String(), err.Error()))
 		return 502, nil, nil, err
@@ -876,7 +896,6 @@ func (fw *WMFrameWorkV2) GoUUID(uuid, username string) (string, bool) {
 
 // DealWithSQLError 统一处理sql执行错误问题
 func (fw *WMFrameWorkV2) DealWithSQLError(c *gin.Context, err error) bool {
-	delete(c.Keys, "user")
 	if err != nil {
 		fw.WriteError("DB", c.Request.RequestURI+"|"+err.Error())
 		if strings.Contains(err.Error(), "Duplicate entry") {
@@ -897,7 +916,6 @@ func (fw *WMFrameWorkV2) DealWithSQLError(c *gin.Context, err error) bool {
 // DealWithXFileMessage 处理自定义失败信息
 // xfileargs 为选填，但填充必须为双数，key1,value1,key2,value2,...样式
 func (fw *WMFrameWorkV2) DealWithXFileMessage(c *gin.Context, detail string, xfile int, xfileArgs ...string) {
-	delete(c.Keys, "user")
 	err := &ErrorV2{
 		Status: 200,
 		Detail: detail,
@@ -915,7 +933,6 @@ func (fw *WMFrameWorkV2) DealWithXFileMessage(c *gin.Context, detail string, xfi
 
 // DealWithFailedMessage 处理标准失败信息
 func (fw *WMFrameWorkV2) DealWithFailedMessage(c *gin.Context, detail string, status ...int) {
-	delete(c.Keys, "user")
 	if len(status) == 0 {
 		c.Set("status", 0)
 	} else {
@@ -930,7 +947,6 @@ func (fw *WMFrameWorkV2) DealWithFailedMessage(c *gin.Context, detail string, st
 
 // DealWithSuccessOK 处理标准成功信息，可选添加detail信息
 func (fw *WMFrameWorkV2) DealWithSuccessOK(c *gin.Context, detail ...string) {
-	delete(c.Keys, "user")
 	c.Set("status", 1)
 	l := len(detail)
 	if l == 1 {
