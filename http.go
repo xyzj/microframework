@@ -672,7 +672,8 @@ func (fw *WMFrameWorkV2) pageModCheck(c *gin.Context) {
 	for _, v := range serviceCheck {
 		js, _ = sjson.Set(js, v[0], v[1])
 	}
-	c.JSON(200, gjson.Parse(js).Value())
+	returnJSON(200, c, gjson.Parse(js).Value())
+	// c.JSON(200, gjson.Parse(js).Value())
 }
 
 func (fw *WMFrameWorkV2) pageStatus(c *gin.Context) {
@@ -698,7 +699,8 @@ func (fw *WMFrameWorkV2) pageStatus(c *gin.Context) {
 		c.Set("start_at", statusInfo["startat"].(string))
 		c.Set("ver", gjson.Parse(fw.verJSON).Value())
 		c.Set("conf", gjson.Parse(fw.wmConf.GetAll()).Value())
-		c.JSON(200, c.Keys)
+		// c.JSON(200, c.Keys)
+		returnJSON(200, c, c.Keys)
 	}
 }
 
@@ -712,7 +714,8 @@ func (fw *WMFrameWorkV2) PrepareToken(shouldAbort bool, auth ...string) gin.Hand
 		if len(uuid) != 36 {
 			ex := NewErr(ErrTokenNotFound).Format(uuid)
 			if shouldAbort {
-				c.AbortWithStatusJSON(ex.HSt(), ex)
+				returnJSON(ex.HSt(), c, ex)
+				// c.AbortWithStatusJSON(ex.HSt(), ex)
 			}
 			c.AddParam("_error", ex.Error())
 			return
@@ -722,7 +725,8 @@ func (fw *WMFrameWorkV2) PrepareToken(shouldAbort bool, auth ...string) gin.Hand
 		if err != nil {
 			ex := NewErr(ErrTokenIllegal).Format(uuid)
 			if shouldAbort {
-				c.AbortWithStatusJSON(ex.HSt(), ex)
+				returnJSON(ex.HSt(), c, ex)
+				// c.AbortWithStatusJSON(ex.HSt(), ex)
 			}
 			c.AddParam("_error", ex.Error())
 			return
@@ -731,7 +735,8 @@ func (fw *WMFrameWorkV2) PrepareToken(shouldAbort bool, auth ...string) gin.Hand
 		if !ans.Exists() { // token内容异常
 			ex := NewErr(ErrTokenNotUnderstand).Format(uuid)
 			if shouldAbort {
-				c.AbortWithStatusJSON(ex.HSt(), ex)
+				returnJSON(ex.HSt(), c, ex)
+				// c.AbortWithStatusJSON(ex.HSt(), ex)
 			}
 			c.AddParam("_error", ex.Error())
 			fw.EraseRedis(tokenPath)
@@ -740,7 +745,8 @@ func (fw *WMFrameWorkV2) PrepareToken(shouldAbort bool, auth ...string) gin.Hand
 		if ans.Get("expire").Int() > 0 && ans.Get("expire").Int() < time.Now().Unix() { // 用户过期
 			ex := NewErr(ErrTokenExpired).Format(uuid)
 			if shouldAbort {
-				c.AbortWithStatusJSON(ex.HSt(), ex)
+				returnJSON(ex.HSt(), c, ex)
+				// c.AbortWithStatusJSON(ex.HSt(), ex)
 			}
 			c.AddParam("_error", ex.Error())
 			fw.EraseRedis(tokenPath)
@@ -759,7 +765,8 @@ func (fw *WMFrameWorkV2) PrepareToken(shouldAbort bool, auth ...string) gin.Hand
 		// 需要匹配权限,不匹配则强制退出，但token不会失效
 		if len(auth) > 0 && tokenname != "root" {
 			if len(gopsu.SlicesIntersect(authbinding, auth)) == 0 { // 这里采用`或`处理权限 < len(auth) {
-				c.AbortWithStatusJSON(errNotAcceptable.HSt(), errNotAcceptable)
+				returnJSON(errNotAcceptable.HSt(), c, errNotAcceptable)
+				// c.AbortWithStatusJSON(errNotAcceptable.HSt(), errNotAcceptable)
 				return
 			}
 		}
@@ -900,14 +907,12 @@ func (fw *WMFrameWorkV2) DealWithSQLError(c *gin.Context, err error) bool {
 		fw.WriteError("DB", c.Request.RequestURI+"|"+err.Error())
 		if strings.Contains(err.Error(), "Duplicate entry") {
 			errx := NewErr(ErrSQLDetail).Format(err.Error())
-			c.AbortWithStatusJSON(errx.Status, errx)
+			returnJSON(errx.Status, c, errx)
+			// c.AbortWithStatusJSON(errx.Status, errx)
 			return true
 		}
-		c.AbortWithStatusJSON(errSQL.Status, errSQL)
-		// c.Set("status", 0)
-		// c.Set("detail", "sql error")
-		// c.Set("xfile", 3)
-		// c.JSON(500, c.Keys)
+		returnJSON(errSQL.Status, c, errSQL)
+		// c.AbortWithStatusJSON(errSQL.Status, errSQL)
 		return true
 	}
 	return false
@@ -928,38 +933,56 @@ func (fw *WMFrameWorkV2) DealWithXFileMessage(c *gin.Context, detail string, xfi
 		}
 		err.XfileArgs = gjson.Parse(js).Value()
 	}
-	c.AbortWithStatusJSON(err.Status, err)
+	returnJSON(err.Status, c, err)
+	// c.AbortWithStatusJSON(err.Status, err)
 }
 
 // DealWithFailedMessage 处理标准失败信息
 func (fw *WMFrameWorkV2) DealWithFailedMessage(c *gin.Context, detail string, status ...int) {
 	if len(status) == 0 {
-		c.Set("status", 0)
+		c.Keys["status"] = 0
 	} else {
-		c.Set("status", status[0])
+		c.Keys["status"] = status[0]
 	}
-	c.Set("detail", detail)
+	c.Keys["detail"] = detail
 	if len(status) > 0 && status[0] == 2 {
-		c.Set("xfile", 10000)
+		c.Keys["xfile"] = 10000
 	}
-	c.AbortWithStatusJSON(200, c.Keys)
+	returnJSON(200, c, c.Keys)
 }
 
 // DealWithSuccessOK 处理标准成功信息，可选添加detail信息
 func (fw *WMFrameWorkV2) DealWithSuccessOK(c *gin.Context, detail ...string) {
-	c.Set("status", 1)
+	c.Keys["status"] = 1
 	l := len(detail)
 	if l == 1 {
-		c.Set("detail", detail[0])
+		c.Keys["detail"] = detail[0]
 		goto END
 	}
 	if l%2 == 0 {
 		for i := 0; i < l; i += 2 {
-			c.Set(detail[i], detail[i+1])
+			c.Keys[detail[i]] = detail[i+1]
 		}
 	}
 END:
-	c.JSON(200, c.Keys)
+	returnJSON(200, c, c.Keys)
+}
+
+func returnJSON(code int, c *gin.Context, body any) {
+	c.Writer.Header().Set("Content-Type", "application/json")
+	b, _ := json.Marshal(body)
+	// if err != nil {
+	// 	code = 400
+	// 	js, _ := sjson.SetBytes([]byte{}, "status", 0)
+	// 	js, _ = sjson.SetBytes(js, "detail", err.Error())
+	// 	b = js
+	// }
+	if code >= 400 {
+		c.Abort()
+	}
+	c.Writer.WriteHeader(code)
+	c.Writer.Write(b)
+	// c.Writer.Flush()
 }
 
 // JSON2Key json字符串赋值到gin.key
@@ -986,6 +1009,7 @@ func (fw *WMFrameWorkV2) CheckRequired(params ...string) gin.HandlerFunc {
 			}
 			if _, ok := c.Params.Get(v); !ok {
 				ex := NewErr(ErrLostRequired).Format(v).XArgs("key_name", v)
+				returnJSON(ex.HSt(), c, ex)
 				c.AbortWithStatusJSON(ex.HSt(), ex)
 				return
 			}
@@ -1048,14 +1072,16 @@ func (fw *WMFrameWorkV2) UserTokenShouldMatch() gin.HandlerFunc {
 			c.AddParam("user_name", username)
 		}
 		if username == "" {
-			c.AbortWithStatusJSON(errNotAuthorized.HSt(), errNotAuthorized)
+			returnJSON(errNotAuthorized.HSt(), c, errNotAuthorized)
+			// c.AbortWithStatusJSON(errNotAuthorized.HSt(), errNotAuthorized)
 			return
 		}
 		if userasadmin != "1" && username != c.Param("_userTokenName") {
 			c.Set("status", 0)
 			c.Set("detail", "User-Token dose not match")
 			c.Set("xfile", 12)
-			c.AbortWithStatusJSON(400, c.Keys)
+			returnJSON(400, c, c.Keys)
+			// c.AbortWithStatusJSON(400, c.Keys)
 			return
 		}
 	}
@@ -1070,7 +1096,8 @@ func (fw *WMFrameWorkV2) UserMustAdmin() gin.HandlerFunc {
 		c.Set("status", 0)
 		c.Set("detail", "you need to be an admin")
 		c.Set("xfile", 12)
-		c.AbortWithStatusJSON(400, c.Keys)
+		returnJSON(400, c, c.Keys)
+		// c.AbortWithStatusJSON(400, c.Keys)
 	}
 }
 
