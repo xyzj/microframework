@@ -35,7 +35,7 @@ import "github.com/xyzj/gopsu/excel"
 // // 返回保存的完整文件名，错误
 // func (e *gopsu.ExcelData) Save() (string, error) {
 // 	// 判断文件夹是否存在
-// 	if !gopsu.IsExist(filepath.Join(gopsu.DefaultCacheDir, "excel")) {
+// 	if !pathtool.IsExist(filepath.Join(gopsu.DefaultCacheDir, "excel")) {
 // 		err := os.Mkdir(filepath.Join(gopsu.DefaultCacheDir, "excel"), 0755)
 // 		if err != nil {
 // 			return "", fmt.Errorf("excel-导出文件夹创建失败:" + err.Error())
@@ -131,7 +131,7 @@ func (fw *WMFrameWorkV2) NewExcel(filename string) (*excel.FileData, error) {
 // 		}
 // 	}
 // 	// 判断文件夹是否存在
-// 	if !gopsu.IsExist(filepath.Join(gopsu.DefaultCacheDir, "excel")) {
+// 	if !pathtool.IsExist(filepath.Join(gopsu.DefaultCacheDir, "excel")) {
 // 		err := os.Mkdir(filepath.Join(gopsu.DefaultCacheDir, "excel"), 0755)
 // 		if err != nil {
 // 			return "", fmt.Errorf("excel-导出文件夹创建失败:" + err.Error())

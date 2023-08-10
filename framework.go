@@ -24,6 +24,7 @@ import (
 	json "github.com/xyzj/gopsu/json"
 	"github.com/xyzj/gopsu/logger"
 	"github.com/xyzj/gopsu/mapfx"
+	"github.com/xyzj/gopsu/pathtool"
 
 	// 载入资源
 	_ "embed"
@@ -65,9 +66,9 @@ func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
 		flag.Var(&dirs, "dir", "example: -dir=name:path -dir name2:path2")
 		flag.Parse()
 	}
-	fmtver, _ := json.MarshalIndent(gjson.Parse(versionInfo).Value(), "", "  ")
+
 	if *ver {
-		println(gopsu.String(fmtver))
+		println(versionInfo)
 		os.Exit(1)
 	}
 	// 初始化
@@ -111,10 +112,10 @@ func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
 	// 处置版本，检查机器码
 	fw.checkMachine()
 	// 写版本信息
-	p, _ := os.Executable()
-	f, _ := os.OpenFile(p+".ver", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
-	defer f.Close()
-	f.Write(fmtver)
+	// p, _ := os.Executable()
+	// f, _ := os.OpenFile(p+".ver", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	// defer f.Close()
+	// f.Write(fmtver)
 	// 处置目录
 	if *portable {
 		gopsu.DefaultConfDir, gopsu.DefaultLogDir, gopsu.DefaultCacheDir = gopsu.MakeRuntimeDirs(".")
@@ -135,7 +136,7 @@ func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
 	}
 	// 设置基础路径
 	fw.baseCAPath = filepath.Join(gopsu.DefaultConfDir, "ca")
-	if !gopsu.IsExist(fw.baseCAPath) {
+	if !pathtool.IsExist(fw.baseCAPath) {
 		os.MkdirAll(fw.baseCAPath, 0755)
 	}
 	fw.tlsCert = filepath.Join(fw.baseCAPath, "localhost.pem")
@@ -145,16 +146,16 @@ func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
 	fw.httpKey = ""
 	// fw.httpCert = filepath.Join(fw.baseCAPath, "localhost.pem")
 	// fw.httpKey = filepath.Join(fw.baseCAPath, "localhost-key.pem")
-	if !gopsu.IsExist(fw.tlsRoot) {
+	if !pathtool.IsExist(fw.tlsRoot) {
 		os.WriteFile(fw.tlsRoot, ca, 0644)
 	}
-	if !gopsu.IsExist(fw.tlsCert) {
+	if !pathtool.IsExist(fw.tlsCert) {
 		os.WriteFile(fw.tlsCert, caCert, 0644)
 	}
-	if !gopsu.IsExist(fw.tlsKey) {
+	if !pathtool.IsExist(fw.tlsKey) {
 		os.WriteFile(fw.tlsKey, caKey, 0644)
 	}
-	if !gopsu.IsExist(filepath.Join(fw.baseCAPath, "localhost.pfx")) {
+	if !pathtool.IsExist(filepath.Join(fw.baseCAPath, "localhost.pfx")) {
 		os.WriteFile(filepath.Join(fw.baseCAPath, "localhost.pfx"), caPfx, 0644)
 	}
 	return fw
@@ -253,7 +254,7 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 		} else {
 			cfpath = filepath.Join(gopsu.DefaultConfDir, opv2.ConfigFile)
 		}
-		if !gopsu.IsExist(cfpath) {
+		if !pathtool.IsExist(cfpath) {
 			println("no config file found, try to create new one")
 		}
 	}
@@ -415,14 +416,14 @@ func (fw *WMFrameWorkV2) loadConfigure(f string) {
 	}
 	fw.wmConf.Save()
 	if domainName != "" {
-		if gopsu.IsExist(filepath.Join(fw.baseCAPath, domainName+".crt")) && gopsu.IsExist(filepath.Join(fw.baseCAPath, domainName+".key")) {
+		if pathtool.IsExist(filepath.Join(fw.baseCAPath, domainName+".crt")) && pathtool.IsExist(filepath.Join(fw.baseCAPath, domainName+".key")) {
 			fw.httpCert = filepath.Join(fw.baseCAPath, domainName+".crt")
 			fw.httpKey = filepath.Join(fw.baseCAPath, domainName+".key")
 			fw.httpProtocol = "https://"
 		}
 	}
 	// 检查高优先级输入参数，覆盖
-	if *cert != "" && *key != "" && gopsu.IsExist(*cert) && gopsu.IsExist(*key) {
+	if *cert != "" && *key != "" && pathtool.IsExist(*cert) && pathtool.IsExist(*key) {
 		fw.httpCert = *cert
 		fw.httpKey = *key
 		fw.httpProtocol = "https://"

@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/xyzj/gopsu"
+	"github.com/xyzj/gopsu/pathtool"
 )
 
 func machineCode() string {
@@ -46,7 +47,7 @@ func machineCode() string {
 
 func (fw *WMFrameWorkV2) checkMachine() {
 	home, _ := os.UserConfigDir()
-	mfiles := []string{filepath.Join(home, ".firstrun"), filepath.Join(gopsu.JoinPathFromHere(), ".firstrun")}
+	mfiles := []string{filepath.Join(home, ".firstrun"), filepath.Join(pathtool.JoinPathFromHere(), ".firstrun")}
 	for _, mfile := range mfiles {
 		// 读取文件错误继续尝试下一个
 		if b, err := os.ReadFile(mfile); err == nil {

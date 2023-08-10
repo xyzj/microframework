@@ -9,6 +9,7 @@ import (
 	"github.com/tidwall/sjson"
 	"github.com/xyzj/gopsu"
 	"github.com/xyzj/gopsu/db"
+	"github.com/xyzj/gopsu/pathtool"
 )
 
 // 数据库配置
@@ -43,7 +44,7 @@ type dbConfigure struct {
 
 var (
 	// 检查升级文件
-	upsql = gopsu.JoinPathFromHere(gopsu.GetExecName() + ".dbupg")
+	upsql = pathtool.JoinPathFromHere(pathtool.GetExecName() + ".dbupg")
 )
 
 func (conf *dbConfigure) show() string {
@@ -150,6 +151,7 @@ func (fw *WMFrameWorkV2) MaintainMrgTables() {
 	if !fw.dbCtl.enable {
 		return
 	}
+
 MAINTAIN:
 	func() {
 		defer func() {

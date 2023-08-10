@@ -33,6 +33,7 @@ import (
 	"github.com/xyzj/gopsu/godaemon"
 	"github.com/xyzj/gopsu/json"
 	"github.com/xyzj/gopsu/loopfunc"
+	"github.com/xyzj/gopsu/pathtool"
 	yaaggin "github.com/xyzj/yaag/gin"
 	"github.com/xyzj/yaag/yaag"
 )
@@ -137,8 +138,8 @@ func apidoc(c *gin.Context) {
 		yaagConfig.ResetDoc()
 		c.String(200, "API record reset done.")
 	default:
-		p := gopsu.JoinPathFromHere("docs", "apirecord-"+c.Param("switch")+".html")
-		if gopsu.IsExist(p) {
+		p := pathtool.JoinPathFromHere("docs", "apirecord-"+c.Param("switch")+".html")
+		if pathtool.IsExist(p) {
 			b, _ := os.ReadFile(p)
 			c.Header("Content-Type", "text/html")
 			c.Status(http.StatusOK)
@@ -159,7 +160,7 @@ func (fw *WMFrameWorkV2) NewHTTPEngineWithYaagSkip(skip []string, f ...gin.Handl
 	// 404,405
 	r.HandleMethodNotAllowed = true
 	r.NoMethod(ginmiddleware.Page405)
-	r.NoRoute(ginmiddleware.Page404)
+	r.NoRoute(ginmiddleware.Page404Big)
 	// 中间件
 	//cors
 	corsopt := cors.Config{
@@ -246,8 +247,8 @@ func (fw *WMFrameWorkV2) NewHTTPEngineWithYaagSkip(skip []string, f ...gin.Handl
 		h.Render(c.Writer)
 	})
 	r.GET("/crash/:do", func(c *gin.Context) {
-		p := gopsu.JoinPathFromHere(gopsu.GetExecNameWithoutExt() + ".crash.log")
-		if !gopsu.IsExist(p) {
+		p := pathtool.JoinPathFromHere(pathtool.GetExecNameWithoutExt() + ".crash.log")
+		if !pathtool.IsExist(p) {
 			c.String(200, "seems good")
 			return
 		}
@@ -260,9 +261,9 @@ func (fw *WMFrameWorkV2) NewHTTPEngineWithYaagSkip(skip []string, f ...gin.Handl
 			}
 			c.String(200, string(b))
 		case "download":
-			c.FileAttachment(p, gopsu.GetExecNameWithoutExt()+".crash.log")
+			c.FileAttachment(p, pathtool.GetExecNameWithoutExt()+".crash.log")
 		default:
-			ginmiddleware.Page404(c)
+			ginmiddleware.Page404Big(c)
 		}
 	})
 
@@ -276,13 +277,13 @@ func (fw *WMFrameWorkV2) NewHTTPEngineWithYaagSkip(skip []string, f ...gin.Handl
 	}
 	// 轻松一下
 	r.GET("/xgame/:game", games.GameGroup)
-	r.GET("/devquotes", ginmiddleware.Page500)
+	r.GET("/devquotes", ginmiddleware.PageDev)
 	// apirecord
 	// r.StaticFS("/apirec", http.FS(apirec))
 	r.GET("/apirecord/:switch", apidoc)
 	// 生成api访问文档
-	apidocPath = gopsu.JoinPathFromHere("docs", "apirecord-"+fw.serverName+".html")
-	os.MkdirAll(gopsu.JoinPathFromHere("docs"), 0755)
+	apidocPath = pathtool.JoinPathFromHere("docs", "apirecord-"+fw.serverName+".html")
+	os.MkdirAll(pathtool.JoinPathFromHere("docs"), 0755)
 	yaagConfig = &yaag.Config{
 		On:       false,
 		DocTitle: "API Record for " + fw.serverAlias,
@@ -348,7 +349,7 @@ func (fw *WMFrameWorkV2) newHTTPService(r *gin.Engine) {
 			})
 	}
 	// 读取特权名单
-	if b, err := os.ReadFile(gopsu.JoinPathFromHere(".vip")); err == nil {
+	if b, err := os.ReadFile(pathtool.JoinPathFromHere(".vip")); err == nil {
 		ss := strings.Split(gopsu.DecodeString(string(b)), ",")
 		if len(ss) > 0 {
 			vipUsers = ss
@@ -417,11 +418,11 @@ func (fw *WMFrameWorkV2) listenAndServeTLS(port int, h *gin.Engine, certfile, ke
 	// 添加手动更新路由
 	h.GET("/cert/:do", func(c *gin.Context) {
 		if do, ok := c.Params.Get("do"); ok && do == "renew" {
-			var spath = gopsu.JoinPathFromHere("sslrenew")
+			var spath = pathtool.JoinPathFromHere("sslrenew")
 			if gopsu.OSNAME == "windows" {
 				spath += ".exe"
 			}
-			if !gopsu.IsExist(spath) {
+			if !pathtool.IsExist(spath) {
 				c.String(400, "no sslrenew found")
 				return
 			}
@@ -699,7 +700,7 @@ func (fw *WMFrameWorkV2) pageStatus(c *gin.Context) {
 		c.Set("start_at", statusInfo["startat"].(string))
 		c.Set("ver", gjson.Parse(fw.verJSON).Value())
 		c.Set("conf", gjson.Parse(fw.wmConf.GetAll()).Value())
-		// c.JSON(200, c.Keys)
+		// fw.DealWithSuccessOK(c)
 		returnJSON(200, c, c.Keys)
 	}
 }
@@ -940,28 +941,30 @@ func (fw *WMFrameWorkV2) DealWithXFileMessage(c *gin.Context, detail string, xfi
 // DealWithFailedMessage 处理标准失败信息
 func (fw *WMFrameWorkV2) DealWithFailedMessage(c *gin.Context, detail string, status ...int) {
 	if len(status) == 0 {
-		c.Keys["status"] = 0
+		c.Set("status", 0)
 	} else {
-		c.Keys["status"] = status[0]
+		c.Set("status", status[0])
 	}
-	c.Keys["detail"] = detail
+	c.Set("detail", detail)
 	if len(status) > 0 && status[0] == 2 {
-		c.Keys["xfile"] = 10000
+		c.Set("xfile", 10000)
 	}
 	returnJSON(200, c, c.Keys)
 }
 
 // DealWithSuccessOK 处理标准成功信息，可选添加detail信息
 func (fw *WMFrameWorkV2) DealWithSuccessOK(c *gin.Context, detail ...string) {
-	c.Keys["status"] = 1
+	if _, ok := c.Keys["status"]; !ok {
+		c.Set("status", 1)
+	}
 	l := len(detail)
 	if l == 1 {
-		c.Keys["detail"] = detail[0]
+		c.Set("detail", detail[0])
 		goto END
 	}
 	if l%2 == 0 {
 		for i := 0; i < l; i += 2 {
-			c.Keys[detail[i]] = detail[i+1]
+			c.Set(detail[i], detail[i+1])
 		}
 	}
 END:
@@ -1010,7 +1013,7 @@ func (fw *WMFrameWorkV2) CheckRequired(params ...string) gin.HandlerFunc {
 			if _, ok := c.Params.Get(v); !ok {
 				ex := NewErr(ErrLostRequired).Format(v).XArgs("key_name", v)
 				returnJSON(ex.HSt(), c, ex)
-				c.AbortWithStatusJSON(ex.HSt(), ex)
+				// c.AbortWithStatusJSON(ex.HSt(), ex)
 				return
 			}
 		}
