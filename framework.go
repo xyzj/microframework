@@ -62,11 +62,10 @@ func (f *sliceFlag) Set(value string) error {
 // NewFrameWorkV2 初始化一个新的framework
 func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
 	// http 静态目录
+	flag.Var(&dirs, "dir", "example: -dir=name:path -dir name2:path2")
 	if !flag.Parsed() {
-		flag.Var(&dirs, "dir", "example: -dir=name:path -dir name2:path2")
 		flag.Parse()
 	}
-
 	if *ver {
 		println(versionInfo)
 		os.Exit(1)
@@ -112,6 +111,7 @@ func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
 	// 处置版本，检查机器码
 	fw.checkMachine()
 	// 写版本信息
+	os.WriteFile(pathtool.GetExecName()+".ver", []byte(versionInfo), 0444)
 	// p, _ := os.Executable()
 	// f, _ := os.OpenFile(p+".ver", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	// defer f.Close()
