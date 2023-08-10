@@ -105,7 +105,7 @@ table {
 	TPLBODY = `{{define "body"}}
 <body>
 <h3>服务器系统时间：</h3><a>{{.timer}}</a>
-<h3>服务启动时间：</h3><a>{{.startat}}</a>
+<h3>服务启动时间：</h3><a>{{.upTime}}</a>
 <h3>{{.key}}：</h3><a>{{range $idx, $elem := .value}}
 {{$elem}}<br>
 {{end}}</a>
@@ -230,7 +230,7 @@ func (fw *WMFrameWorkV2) NewHTTPEngineWithYaagSkip(skip []string, f ...gin.Handl
 	r.StaticFS("/downloadLog", http.Dir(gopsu.DefaultLogDir))
 	r.GET("/config/view", func(c *gin.Context) {
 		configInfo := make(map[string]interface{})
-		configInfo["startat"] = fw.startAt
+		configInfo["upTime"] = fw.upTime
 		configInfo["timer"] = time.Now().Format("2006-01-02 15:04:05 Mon")
 		configInfo["key"] = "服务配置信息"
 		b, _ := os.ReadFile(fw.wmConf.FullPath())
@@ -363,7 +363,7 @@ func (fw *WMFrameWorkV2) newHTTPService(r *gin.Engine) {
 	if err != nil {
 		// panic(fmt.Errorf("Failed start HTTP(S) server at :" + strconv.Itoa(*webPort) + " | " + err.Error()))
 		fw.WriteError("WEB", "Failed start "+t+" server at :"+strconv.Itoa(*webPort)+" | "+err.Error()+". >>> QUIT ...")
-		// godaemon.SignalQuit()
+		os.Exit(1)
 		return
 	}
 	fw.WriteSystem("WEB", fmt.Sprintf("Success start %s server at :%d", t, *webPort))
@@ -678,7 +678,7 @@ func (fw *WMFrameWorkV2) pageModCheck(c *gin.Context) {
 
 func (fw *WMFrameWorkV2) pageStatus(c *gin.Context) {
 	var statusInfo = make(map[string]interface{})
-	statusInfo["startat"] = fw.startAt
+	statusInfo["upTime"] = fw.upTime
 	statusInfo["timer"] = time.Now().Format("2006-01-02 15:04:05 Mon")
 	statusInfo["key"] = "服务运行信息"
 	fmtver, _ := json.MarshalIndent(gjson.Parse(fw.verJSON).Value(), "", "")
@@ -696,7 +696,7 @@ func (fw *WMFrameWorkV2) pageStatus(c *gin.Context) {
 		h.Render(c.Writer)
 	case "POST":
 		c.Set("server_time", statusInfo["timer"].(string))
-		c.Set("start_at", statusInfo["startat"].(string))
+		c.Set("start_at", statusInfo["upTime"].(string))
 		c.Set("ver", gjson.Parse(fw.verJSON).Value())
 		c.Set("conf", gjson.Parse(fw.wmConf.GetAll()).Value())
 		// fw.DealWithSuccessOK(c)

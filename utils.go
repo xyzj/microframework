@@ -198,7 +198,7 @@ type WMFrameWorkV2 struct {
 	loggerMark     string
 	verJSON        string
 	tag            string
-	startAt        string
+	upTime         string
 	rootPath       string
 	rootPathRedis  string
 	rootPathMQ     string

@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 	"github.com/pyroscope-io/pyroscope/pkg/agent/profiler"
 	"github.com/tidwall/gjson"
 	"github.com/xyzj/gopsu"
@@ -66,7 +65,7 @@ func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
 		tokenLife:  time.Minute * 30,
 		wmConf:     &gopsu.ConfData{},
 		serverName: "xserver",
-		startAt:    time.Now().Format("2006-01-02 15:04:05 Mon"),
+		upTime:     time.Now().Format("2006-01-02 15:04:05 Mon"),
 		verJSON:    versionInfo,
 		etcdCtl:    &etcdConfigure{},
 		redisCtl:   &redisConfigure{},
@@ -154,15 +153,6 @@ func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
 // Start 运行框架
 // 启动模组，不阻塞
 func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
-	// defer func() {
-	// 	if err := recover(); err != nil {
-	// 		fw.WriteError("PANIC", fmt.Sprintf("%+v", errors.WithStack(err.(error))))
-	// 		println("framework error: " + errors.WithStack(err.(error)).Error())
-	// 		time.Sleep(time.Second)
-	// 		os.Exit(1)
-	// 	}
-	// }()
-	// godaemon.Start(nil)
 	// 设置日志
 	fw.cnf = opv2
 	if opv2.UseETCD != nil {
@@ -373,16 +363,8 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 // Run 运行框架
 // 启动模组，阻塞
 func (fw *WMFrameWorkV2) Run(opv2 *OptionFrameWorkV2) {
-	defer func() {
-		if err := recover(); err != nil {
-			fw.WriteError("SYS", fmt.Sprintf("%+v", errors.WithStack(err.(error))))
-			os.WriteFile("crash.log", []byte(fmt.Sprintf("%+v", errors.WithStack(err.(error)))), 0664)
-		}
-	}()
 	fw.Start(opv2)
-	for {
-		time.Sleep(time.Hour)
-	}
+	select {}
 }
 
 // LoadConfigure 初始化配置

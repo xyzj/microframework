@@ -73,9 +73,10 @@ func (fw *WMFrameWorkV2) newRedisClient() bool {
 		},
 	})
 	fw.redisCtl.ready = true
-	fw.WriteSystem("REDIS", fmt.Sprintf("Connect to server %s is ready, use db %d", fw.redisCtl.addr, fw.redisCtl.database))
 	// fw.WriteSystem("REDIS", fmt.Sprintf("Connect to server %s is ready, use db %d", fw.redisCtl.addr, fw.redisCtl.database))
-	fw.tryRedisVer()
+	if err := fw.tryRedisVer(); err == nil {
+		fw.WriteSystem("REDIS", fmt.Sprintf("Connect to server %s is ready, use db %d", fw.redisCtl.addr, fw.redisCtl.database))
+	}
 	// fw.redisCtl.ready = true
 	// fw.WriteSystem("REDIS", fmt.Sprintf("Success connect to server %s, use db %d", fw.redisCtl.addr, fw.redisCtl.database))
 	return true
@@ -379,9 +380,9 @@ func (fw *WMFrameWorkV2) logRedisError(err error, formatstr string, params ...in
 	fw.WriteError("REDIS", fmt.Sprintf(formatstr+"| %s", params...))
 	return err
 }
-func (fw *WMFrameWorkV2) tryRedisVer() {
-	if !fw.redisCtl.ready || fw.redisCtl.mianver > 0 {
-		return
+func (fw *WMFrameWorkV2) tryRedisVer() error {
+	if fw.redisCtl.mianver > 0 {
+		return nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), redisCtxTimeo)
 	defer cancel()
@@ -394,5 +395,5 @@ func (fw *WMFrameWorkV2) tryRedisVer() {
 			}
 		}
 	}
-	fw.logRedisError(err, "failed get server info %s", fw.redisCtl.addr)
+	return fw.logRedisError(err, "failed get server info %s", fw.redisCtl.addr)
 }
