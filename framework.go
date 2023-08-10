@@ -2,7 +2,6 @@ package wmfw
 
 import (
 	"crypto/tls"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,7 +19,7 @@ import (
 	"github.com/xyzj/gopsu"
 	"github.com/xyzj/gopsu/cache"
 	"github.com/xyzj/gopsu/db"
-	"github.com/xyzj/gopsu/godaemon"
+	"github.com/xyzj/gopsu/gocmd"
 	json "github.com/xyzj/gopsu/json"
 	"github.com/xyzj/gopsu/logger"
 	"github.com/xyzj/gopsu/mapfx"
@@ -48,28 +47,19 @@ var nothere []byte
 //go:embed favicon.webp
 var favicon []byte
 
-type sliceFlag []string
-
-func (f *sliceFlag) String() string {
-	return fmt.Sprintf("%v", []string(*f))
-}
-
-func (f *sliceFlag) Set(value string) error {
-	*f = append(*f, value)
-	return nil
-}
-
 // NewFrameWorkV2 初始化一个新的framework
 func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
 	// http 静态目录
-	flag.Var(&dirs, "dir", "example: -dir=name:path -dir name2:path2")
-	if !flag.Parsed() {
-		flag.Parse()
-	}
-	if *ver {
-		println(versionInfo)
-		os.Exit(1)
-	}
+	// if !flag.Parsed() {
+	// 	flag.Parse()
+	// }
+	// if *ver {
+	// 	println(versionInfo)
+	// 	os.Exit(1)
+	// }
+	gocmd.DefaultProgram(&gocmd.Info{
+		Ver: versionInfo,
+	}).ExecuteDefault("run")
 	// 初始化
 	fw := &WMFrameWorkV2{
 		rootPath:   "micro-svr",
@@ -172,7 +162,7 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 	// 		os.Exit(1)
 	// 	}
 	// }()
-	godaemon.Start(nil)
+	// godaemon.Start(nil)
 	// 设置日志
 	fw.cnf = opv2
 	if opv2.UseETCD != nil {

@@ -46,10 +46,8 @@ var (
 	// 证书crt文件
 	cert = flag.String("cert", "", "set https cert file path")
 	// 证书key文件
-	key = flag.String("key", "", "set https key file path")
-	// 版本信息
-	ver  = flag.Bool("version", false, "print version info and exit.")
-	dirs sliceFlag
+	key  = flag.String("key", "", "set https key file path")
+	dirs gopsu.SliceFlag
 )
 
 var (
@@ -222,6 +220,7 @@ func init() {
 	// CWorker 加密
 	CWorker = gopsu.GetNewCryptoWorker(gopsu.CryptoAES128CBC)
 	CWorker.SetKey("(NMNle+XW!ykVjf1", "Zq0V+,.2u|3sGAzH")
+	flag.Var(&dirs, "dir", "example: -dir=name:path -dir name2:path2")
 }
 
 // NotHere 返回nothere图片

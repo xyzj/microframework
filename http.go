@@ -30,7 +30,6 @@ import (
 	"github.com/xyzj/gopsu/excel"
 	"github.com/xyzj/gopsu/games"
 	ginmiddleware "github.com/xyzj/gopsu/gin-middleware"
-	"github.com/xyzj/gopsu/godaemon"
 	"github.com/xyzj/gopsu/json"
 	"github.com/xyzj/gopsu/loopfunc"
 	"github.com/xyzj/gopsu/pathtool"
@@ -364,7 +363,7 @@ func (fw *WMFrameWorkV2) newHTTPService(r *gin.Engine) {
 	if err != nil {
 		// panic(fmt.Errorf("Failed start HTTP(S) server at :" + strconv.Itoa(*webPort) + " | " + err.Error()))
 		fw.WriteError("WEB", "Failed start "+t+" server at :"+strconv.Itoa(*webPort)+" | "+err.Error()+". >>> QUIT ...")
-		godaemon.SignalQuit()
+		// godaemon.SignalQuit()
 		return
 	}
 	fw.WriteSystem("WEB", fmt.Sprintf("Success start %s server at :%d", t, *webPort))
