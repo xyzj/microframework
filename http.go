@@ -30,6 +30,7 @@ import (
 	"github.com/xyzj/gopsu/excel"
 	"github.com/xyzj/gopsu/games"
 	ginmiddleware "github.com/xyzj/gopsu/gin-middleware"
+	"github.com/xyzj/gopsu/gocmd"
 	"github.com/xyzj/gopsu/json"
 	"github.com/xyzj/gopsu/loopfunc"
 	"github.com/xyzj/gopsu/pathtool"
@@ -228,13 +229,22 @@ func (fw *WMFrameWorkV2) NewHTTPEngineWithYaagSkip(skip []string, f ...gin.Handl
 	r.GET("/uptime", fw.pageStatus)
 	r.POST("/uptime", fw.pageStatus)
 	r.StaticFS("/downloadLog", http.Dir(gopsu.DefaultLogDir))
-	r.GET("/config/view", func(c *gin.Context) {
+	r.GET("/config/view", ginmiddleware.BasicAuth(), func(c *gin.Context) {
 		configInfo := make(map[string]interface{})
 		configInfo["upTime"] = fw.upTime
 		configInfo["timer"] = time.Now().Format("2006-01-02 15:04:05 Mon")
 		configInfo["key"] = "服务配置信息"
 		b, _ := os.ReadFile(fw.wmConf.FullPath())
-		configInfo["value"] = strings.Split(gopsu.String(b), "\n")
+		xs := strings.Split(gopsu.String(b), "\n")
+		for k, v := range xs {
+			if strings.Contains(v, "_user=") || strings.Contains(v, "_pwd=") {
+				ss := strings.Split(v, "=")
+				if len(ss) == 2 {
+					xs[k] = ss[0] + "=" + gopsu.CodeString(ss[1])
+				}
+			}
+		}
+		configInfo["value"] = xs
 		c.Header("Content-Type", "text/html")
 		t, _ := template.New("viewconfig").Parse(TPLHEAD + TPLCSS + TPLBODY)
 		h := render.HTML{
@@ -363,7 +373,7 @@ func (fw *WMFrameWorkV2) newHTTPService(r *gin.Engine) {
 	if err != nil {
 		// panic(fmt.Errorf("Failed start HTTP(S) server at :" + strconv.Itoa(*webPort) + " | " + err.Error()))
 		fw.WriteError("WEB", "Failed start "+t+" server at :"+strconv.Itoa(*webPort)+" | "+err.Error()+". >>> QUIT ...")
-		os.Exit(1)
+		gocmd.SignalQuit()
 		return
 	}
 	fw.WriteSystem("WEB", fmt.Sprintf("Success start %s server at :%d", t, *webPort))
@@ -472,10 +482,6 @@ func (fw *WMFrameWorkV2) renewCA(s *http.Server, certfile, keyfile string) {
 }
 
 // DoRequestWithTimeout 进行http request请求
-//
-//	req: http.NewRequest()
-//	logdetail: [日志等级(0,10,20,30,40),日志追加信息]
-//	返回statusCode, body, headers, error
 func (fw *WMFrameWorkV2) DoRequestWithTimeout(req *http.Request, timeo time.Duration, params ...interface{}) (int, []byte, map[string]string, error) {
 	// 处理url，`/`开头的，尝试从etcd获取地址
 	x := req.URL.String()

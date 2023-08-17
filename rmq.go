@@ -113,7 +113,7 @@ func (fw *WMFrameWorkV2) newMQProducer() bool {
 		return false
 	}
 	opt := &mq.RabbitMQOpt{
-		ExchangeName:       "luwak_topic",
+		ExchangeName:       fw.rmqCtl.exchange,
 		ExchangeDurable:    true,
 		ExchangeAutoDelete: true,
 		Addr:               fw.rmqCtl.addr,
@@ -154,10 +154,10 @@ func (fw *WMFrameWorkV2) newMQConsumerV2(queueAutoDel bool, bindkeys []string, r
 	}
 	opt := &mq.RabbitMQOpt{
 		QueueAutoDelete:    true,
-		QueueDurable:       true,
+		QueueDurable:       false,
 		ExchangeAutoDelete: true,
 		ExchangeDurable:    true,
-		ExchangeName:       "luwak_topic",
+		ExchangeName:       fw.rmqCtl.exchange,
 		QueueName:          fw.rmqCtl.queue,
 		VHost:              fw.rmqCtl.vhost,
 		Username:           fw.rmqCtl.user,
@@ -306,6 +306,12 @@ func (fw *WMFrameWorkV2) UnBindRabbitMQ(keys ...string) {
 
 // WriteRabbitMQ 写mq
 func (fw *WMFrameWorkV2) WriteRabbitMQ(key string, value []byte, expire time.Duration, msgproto ...proto.Message) error {
+	if fw.rmqCtl.sender == nil {
+		return fmt.Errorf("sender not ready")
+	}
+	if !fw.rmqCtl.sender.Enable() {
+		return fmt.Errorf("sender connection lost")
+	}
 	key = fw.AppendRootPathRabbit(key)
 	fw.rmqCtl.sender.Send(key, value, expire)
 	// if !fw.ProducerIsReady() {

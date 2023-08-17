@@ -73,6 +73,7 @@ type OptionETCD struct {
 	SvrProtocol string
 	// 启用
 	Activation bool
+	ForceOff   bool
 }
 
 // OptionSQL 数据库配置

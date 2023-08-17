@@ -251,7 +251,9 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 	}
 	// etcd
 	if opv2.UseETCD != nil {
-		fw.newRedisETCDClient()
+		if !opv2.UseETCD.ForceOff {
+			fw.newRedisETCDClient()
+		}
 		// if opv2.UseETCD.Activation {
 		// 	go fw.newETCDClient()
 		// }
