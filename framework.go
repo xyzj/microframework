@@ -74,6 +74,7 @@ func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
 		rmqCtl2nd:  &rabbitConfigure{},
 		mqttCtl:    &mqttConfigure{},
 		reqTimeo:   time.Second * 30,
+		tokenCache: cache.NewCache(3000),
 		httpClientPool: &http.Client{
 			// Timeout: time.Duration(time.Second * 60),
 			Transport: &http.Transport{
@@ -174,9 +175,9 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 	if fw.loggerMark == "" {
 		fw.loggerMark = fmt.Sprintf("%s-%05d", fw.serverName, *webPort)
 	}
-	cl := make([]byte, 0)
-	if *logLevel > 10 {
-		cl = []byte{40, 90}
+	cl := []byte{40, 90}
+	if *logLevel == 10 {
+		cl = append(cl, 10, 20, 30)
 	}
 	fw.wmLog = logger.NewLogger(gopsu.DefaultLogDir,
 		func(level int) string {
@@ -217,10 +218,9 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 			}
 			return ""
 		}(*logLevel),
-		MaxDays:       *logDays,
-		ZipFile:       *logDays > 10,
-		SyncToConsole: *logLevel <= 10,
-		DelayWrite:    *logLazy,
+		MaxDays:    *logDays,
+		ZipFile:    *logDays > 10,
+		DelayWrite: *logLazy,
 	})
 	if opv2.ConfigFile == "" {
 		opv2.ConfigFile = *conf

@@ -192,6 +192,7 @@ type WMFrameWorkV2 struct {
 	mqttCtl        *mqttConfigure
 	httpClientPool *http.Client
 	cnf            *OptionFrameWorkV2
+	tokenCache     *cache.XCache
 	tokenLife      time.Duration
 	reqTimeo       time.Duration
 	serverName     string

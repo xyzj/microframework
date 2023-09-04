@@ -139,6 +139,7 @@ DBCONN:
 			fw.WriteError("DB", "Create Tables on "+fw.dbCtl.addr)
 		}
 		fw.dbCtl.database = dbname
+		goto DBCONN
 	}
 	fw.dbUpgrade(dbupgrade)
 	return true

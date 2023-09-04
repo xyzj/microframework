@@ -160,7 +160,7 @@ func (fw *WMFrameWorkV2) NewHTTPEngineWithYaagSkip(skip []string, f ...gin.Handl
 	// 404,405
 	r.HandleMethodNotAllowed = true
 	r.NoMethod(ginmiddleware.Page405)
-	r.NoRoute(ginmiddleware.Page404Big)
+	r.NoRoute(ginmiddleware.Page404Rand)
 	// 中间件
 	//cors
 	corsopt := cors.Config{
@@ -851,7 +851,7 @@ func (fw *WMFrameWorkV2) PrepareTokenFromParams() gin.HandlerFunc {
 func (fw *WMFrameWorkV2) RenewToken() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		go func() {
-			if c.GetHeader("Token_Alive") == "0" {
+			if c.GetHeader("Token_alive") == "0" {
 				return
 			}
 			uuid := c.GetHeader("User-Token")
@@ -863,9 +863,14 @@ func (fw *WMFrameWorkV2) RenewToken() gin.HandlerFunc {
 				return
 			}
 			// 更新redis的对应键值的有效期
-			if gjson.Parse(x).Get("source").String() != "local" {
-				fw.ExpireUserToken(uuid)
+			if gjson.Parse(x).Get("source").String() == "local" {
+				return
 			}
+			if _, ok := fw.tokenCache.Get(uuid); ok { // 1分钟内不重复刷新
+				return
+			}
+			fw.ExpireUserToken(uuid)
+			fw.tokenCache.Set(uuid, struct{}{}, time.Minute)
 		}()
 	}
 }

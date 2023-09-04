@@ -4,7 +4,6 @@ import (
 	"strconv"
 	"strings"
 
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/tidwall/sjson"
 	"github.com/xyzj/gopsu"
 	"github.com/xyzj/gopsu/mq"
@@ -22,7 +21,7 @@ type mqttConfigure struct {
 	// 是否启用mqtt
 	enable bool
 	// 数据接收方法
-	client mqtt.Client
+	client *mq.MqttClient
 }
 
 func (conf *mqttConfigure) show(rootPath string) string {
@@ -59,18 +58,15 @@ func (fw *WMFrameWorkV2) newMQTTClient(bindkeys []string, fRecv func(topic strin
 
 // WriteMQTT 发送mqtt消息
 func (fw *WMFrameWorkV2) WriteMQTT(key string, msg []byte, appendhead bool) {
-	if fw.mqttCtl.client == nil {
-		return
-	}
 	if !fw.mqttCtl.client.IsConnectionOpen() {
 		return
 	}
 	if appendhead && !strings.HasPrefix(key, fw.rootPath) {
 		key = fw.rootPath + "/" + key
 	}
-	token := fw.mqttCtl.client.Publish(key, 0, false, msg)
-	if token.Wait() && token.Error() != nil {
-		fw.WriteError("[MQTT] E:", token.Error().Error())
+	err := fw.mqttCtl.client.Write(key, msg)
+	if err != nil {
+		fw.WriteError("[MQTT] E:", err.Error())
 		return
 	}
 	fw.WriteInfo("[MQTT] S:", key+" | "+gopsu.String(msg))
@@ -78,8 +74,5 @@ func (fw *WMFrameWorkV2) WriteMQTT(key string, msg []byte, appendhead bool) {
 
 // MQTTIsReady mqtt是否就绪
 func (fw *WMFrameWorkV2) MQTTIsReady() bool {
-	if fw.mqttCtl.client == nil {
-		return false
-	}
 	return fw.mqttCtl.client.IsConnectionOpen()
 }
