@@ -234,17 +234,7 @@ func (fw *WMFrameWorkV2) NewHTTPEngineWithYaagSkip(skip []string, f ...gin.Handl
 		configInfo["upTime"] = fw.upTime
 		configInfo["timer"] = time.Now().Format("2006-01-02 15:04:05 Mon")
 		configInfo["key"] = "服务配置信息"
-		b, _ := os.ReadFile(fw.wmConf.FullPath())
-		xs := strings.Split(gopsu.String(b), "\n")
-		for k, v := range xs {
-			if strings.Contains(v, "_user=") || strings.Contains(v, "_pwd=") {
-				ss := strings.Split(v, "=")
-				if len(ss) == 2 {
-					xs[k] = ss[0] + "=" + gopsu.CodeString(ss[1])
-				}
-			}
-		}
-		configInfo["value"] = xs
+		configInfo["value"] = fw.wmConf.Print()
 		c.Header("Content-Type", "text/html")
 		t, _ := template.New("viewconfig").Parse(TPLHEAD + TPLCSS + TPLBODY)
 		h := render.HTML{
@@ -704,7 +694,7 @@ func (fw *WMFrameWorkV2) pageStatus(c *gin.Context) {
 		c.Set("server_time", statusInfo["timer"].(string))
 		c.Set("start_at", statusInfo["upTime"].(string))
 		c.Set("ver", gjson.Parse(fw.verJSON).Value())
-		c.Set("conf", gjson.Parse(fw.wmConf.GetAll()).Value())
+		c.Set("conf", fw.wmConf.Print())
 		// fw.DealWithSuccessOK(c)
 		returnJSON(200, c, c.Keys)
 	}

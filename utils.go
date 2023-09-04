@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/xyzj/gopsu"
 	"github.com/xyzj/gopsu/cache"
+	config "github.com/xyzj/gopsu/confile"
 	"github.com/xyzj/gopsu/logger"
 	"github.com/xyzj/gopsu/mapfx"
 	"gorm.io/gorm"
@@ -183,7 +184,7 @@ type WMFrameWorkV2 struct {
 	cacheMem       *cache.XCache
 	ft             *mapfx.BaseMap[string]             // 固定token
 	mapEtcd        *mapfx.StructMap[string, EtcdInfo] //*mapETCD
-	wmConf         *gopsu.ConfData                    // 配置
+	wmConf         *config.File                       // 配置
 	etcdCtl        *etcdConfigure
 	redisCtl       *redisConfigure
 	dbCtl          *dbConfigure

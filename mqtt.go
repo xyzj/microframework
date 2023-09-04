@@ -1,11 +1,11 @@
 package wmfw
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/tidwall/sjson"
 	"github.com/xyzj/gopsu"
+	config "github.com/xyzj/gopsu/confile"
 	"github.com/xyzj/gopsu/mq"
 )
 
@@ -32,11 +32,11 @@ func (conf *mqttConfigure) show(rootPath string) string {
 }
 
 func (fw *WMFrameWorkV2) newMQTTClient(bindkeys []string, fRecv func(topic string, body []byte)) {
-	fw.mqttCtl.addr = fw.wmConf.GetItemDefault("mqtt_addr", "127.0.0.1:1883", "mqtt服务地址,ip:port格式")
-	fw.mqttCtl.username = fw.wmConf.GetItemDefault("mqtt_user", "", "mqtt用户名")
-	fw.mqttCtl.password = gopsu.DecodeString(fw.wmConf.GetItemDefault("mqtt_pwd", "", "mqtt密码"))
-	fw.mqttCtl.enable, _ = strconv.ParseBool(fw.wmConf.GetItemDefault("mqtt_enable", "false", "是否启用mqtt"))
-	fw.wmConf.Save()
+	fw.mqttCtl.addr = fw.wmConf.GetDefault(&config.Item{Key: "mqtt_addr", Value: "127.0.0.1:1883", Comment: "mqtt服务地址,ip:port格式"}).String()
+	fw.mqttCtl.username = fw.wmConf.GetDefault(&config.Item{Key: "mqtt_user", Value: "", Comment: "mqtt用户名"}).String()
+	fw.mqttCtl.password = fw.wmConf.GetDefault(&config.Item{Key: "mqtt_pwd", Value: "", Comment: "mqtt密码"}).TryDecode()
+	fw.mqttCtl.enable = fw.wmConf.GetDefault(&config.Item{Key: "mqtt_enable", Value: "false", Comment: "是否启用mqtt"}).TryBool()
+	fw.wmConf.ToFile()
 	if !fw.mqttCtl.enable {
 		return
 	}

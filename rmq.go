@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"github.com/xyzj/gopsu"
+	config "github.com/xyzj/gopsu/confile"
 	"github.com/xyzj/gopsu/loopfunc"
 	"github.com/xyzj/gopsu/mq"
 )
@@ -67,32 +67,32 @@ func (conf *rabbitConfigure) show(rootPath string) string {
 }
 
 func (fw *WMFrameWorkV2) loadMQConfigProducer() {
-	fw.rmqCtl.addr = fw.wmConf.GetItemDefault("mq_addr", "127.0.0.1:5671", "mq服务地址,ip:port格式")
-	fw.rmqCtl.user = fw.wmConf.GetItemDefault("mq_user", "arx7", "mq连接用户名")
-	fw.rmqCtl.pwd = gopsu.DecodeString(fw.wmConf.GetItemDefault("mq_pwd", "WcELCNqP5dCpvMmMbKDdvgb", "mq连接密码"))
-	fw.rmqCtl.vhost = fw.wmConf.GetItemDefault("mq_vhost", "", "mq虚拟域名")
-	fw.rmqCtl.exchange = fw.wmConf.GetItemDefault("mq_exchange", "luwak_topic", "mq交换机名称")
-	fw.rmqCtl.enable, _ = strconv.ParseBool(fw.wmConf.GetItemDefault("mq_enable", "true", "是否启用rabbitmq"))
-	fw.rmqCtl.usetls, _ = strconv.ParseBool(fw.wmConf.GetItemDefault("mq_tls", "true", "是否使用证书连接rabbitmq服务"))
+	fw.rmqCtl.addr = fw.wmConf.GetDefault(&config.Item{Key: "mq_addr", Value: "127.0.0.1:5671", Comment: "mq服务地址,ip:port格式"}).String()
+	fw.rmqCtl.user = fw.wmConf.GetDefault(&config.Item{Key: "mq_user", Value: "arx7", Comment: "mq连接用户名"}).String()
+	fw.rmqCtl.pwd = fw.wmConf.GetDefault(&config.Item{Key: "mq_pwd", Value: "WcELCNqP5dCpvMmMbKDdvgb", Comment: "mq连接密码"}).TryDecode()
+	fw.rmqCtl.vhost = fw.wmConf.GetDefault(&config.Item{Key: "mq_vhost", Value: "", Comment: "mq虚拟域名"}).String()
+	fw.rmqCtl.exchange = fw.wmConf.GetDefault(&config.Item{Key: "mq_exchange", Value: "luwak_topic", Comment: "mq交换机名称"}).String()
+	fw.rmqCtl.enable = fw.wmConf.GetDefault(&config.Item{Key: "mq_enable", Value: "true", Comment: "是否启用rabbitmq"}).TryBool()
+	fw.rmqCtl.usetls = fw.wmConf.GetDefault(&config.Item{Key: "mq_tls", Value: "true", Comment: "是否使用证书连接rabbitmq服务"}).TryBool()
 	fw.rmqCtl.protocol = "amqps"
 	if !fw.rmqCtl.usetls {
 		fw.rmqCtl.addr = strings.Replace(fw.rmqCtl.addr, "5671", "5672", 1)
 		fw.rmqCtl.protocol = "amqp"
 	}
-	fw.wmConf.Save()
+	fw.wmConf.ToFile()
 	fw.rmqCtl.show(fw.rootPath)
 }
 func (fw *WMFrameWorkV2) loadMQConfig(queueAutoDel bool) {
-	fw.rmqCtl.addr = fw.wmConf.GetItemDefault("mq_addr", "127.0.0.1:5671", "mq服务地址,ip:port格式")
-	fw.rmqCtl.user = fw.wmConf.GetItemDefault("mq_user", "arx7", "mq连接用户名")
-	fw.rmqCtl.pwd = gopsu.DecodeString(fw.wmConf.GetItemDefault("mq_pwd", "WcELCNqP5dCpvMmMbKDdvgb", "mq连接密码"))
-	fw.rmqCtl.vhost = fw.wmConf.GetItemDefault("mq_vhost", "", "mq虚拟域名")
-	fw.rmqCtl.exchange = fw.wmConf.GetItemDefault("mq_exchange", "luwak_topic", "mq交换机名称")
-	fw.rmqCtl.queueRandom, _ = strconv.ParseBool(fw.wmConf.GetItemDefault("mq_queue_random", "true", "随机队列名，true-用于独占模式（此时 mq_autodel=true），false-负载均衡"))
-	fw.rmqCtl.durable = false //, _ = strconv.ParseBool(fw.wmConf.GetItemDefault("mq_durable", "false", "队列是否持久化"))
-	fw.rmqCtl.autodel, _ = strconv.ParseBool(fw.wmConf.GetItemDefault("mq_autodel", fmt.Sprintf("%v", queueAutoDel), "队列在未使用时是否删除"))
-	fw.rmqCtl.enable, _ = strconv.ParseBool(fw.wmConf.GetItemDefault("mq_enable", "true", "是否启用rabbitmq"))
-	fw.rmqCtl.usetls, _ = strconv.ParseBool(fw.wmConf.GetItemDefault("mq_tls", "true", "是否使用证书连接rabbitmq服务"))
+	fw.rmqCtl.addr = fw.wmConf.GetDefault(&config.Item{Key: "mq_addr", Value: "127.0.0.1:5671", Comment: "mq服务地址,ip:port格式"}).String()
+	fw.rmqCtl.user = fw.wmConf.GetDefault(&config.Item{Key: "mq_user", Value: "arx7", Comment: "mq连接用户名"}).String()
+	fw.rmqCtl.pwd = fw.wmConf.GetDefault(&config.Item{Key: "mq_pwd", Value: "WcELCNqP5dCpvMmMbKDdvgb", Comment: "mq连接密码"}).TryDecode()
+	fw.rmqCtl.vhost = fw.wmConf.GetDefault(&config.Item{Key: "mq_vhost", Value: "", Comment: "mq虚拟域名"}).String()
+	fw.rmqCtl.exchange = fw.wmConf.GetDefault(&config.Item{Key: "mq_exchange", Value: "luwak_topic", Comment: "mq交换机名称"}).String()
+	fw.rmqCtl.queueRandom = fw.wmConf.GetDefault(&config.Item{Key: "mq_queue_random", Value: "true", Comment: "随机队列名，true-用于独占模式（此时 mq_autodel=true），false-负载均衡"}).TryBool()
+	fw.rmqCtl.durable = false //=fw.wmConf.GetDefault(&config.Item{Key:"mq_durable", "false", "队列是否持久化"))
+	fw.rmqCtl.autodel = true  // fw.wmConf.GetDefault(&config.Item{Key: "mq_autodel", Value: fmt.Sprintf("%v", queueAutoDel), Comment: "队列在未使用时是否删除"}).TryBool()
+	fw.rmqCtl.enable = fw.wmConf.GetDefault(&config.Item{Key: "mq_enable", Value: "true", Comment: "是否启用rabbitmq"}).TryBool()
+	fw.rmqCtl.usetls = fw.wmConf.GetDefault(&config.Item{Key: "mq_tls", Value: "true", Comment: "是否使用证书连接rabbitmq服务"}).TryBool()
 	fw.rmqCtl.protocol = "amqps"
 	if !fw.rmqCtl.usetls {
 		fw.rmqCtl.addr = strings.Replace(fw.rmqCtl.addr, "5671", "5672", 1)
@@ -102,7 +102,7 @@ func (fw *WMFrameWorkV2) loadMQConfig(queueAutoDel bool) {
 		fw.rmqCtl.durable = false
 		fw.rmqCtl.autodel = true
 	}
-	fw.wmConf.Save()
+	fw.wmConf.ToFile()
 	fw.rmqCtl.show(fw.rootPath)
 }
 

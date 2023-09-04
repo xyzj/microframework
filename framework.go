@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -17,6 +16,7 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/xyzj/gopsu"
 	"github.com/xyzj/gopsu/cache"
+	config "github.com/xyzj/gopsu/confile"
 	"github.com/xyzj/gopsu/db"
 	"github.com/xyzj/gopsu/gocmd"
 	json "github.com/xyzj/gopsu/json"
@@ -63,7 +63,7 @@ func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
 	fw := &WMFrameWorkV2{
 		rootPath:   "micro-svr",
 		tokenLife:  time.Minute * 30,
-		wmConf:     &gopsu.ConfData{},
+		wmConf:     &config.File{},
 		serverName: "xserver",
 		upTime:     time.Now().Format("2006-01-02 15:04:05 Mon"),
 		verJSON:    versionInfo,
@@ -372,23 +372,22 @@ func (fw *WMFrameWorkV2) Run(opv2 *OptionFrameWorkV2) {
 // LoadConfigure 初始化配置
 func (fw *WMFrameWorkV2) loadConfigure(f string) {
 	var err error
-	fw.wmConf, err = gopsu.LoadConfig(f)
+	fw.wmConf = config.NewConfig(f)
 	if err != nil {
 		println("load config error: " + err.Error())
 	}
-	fw.rootPath = fw.wmConf.GetItemDefault("root_path", "micro-svr", "etcd/mq/redis注册根路径")
+	fw.rootPath = fw.wmConf.GetDefault(&config.Item{Key: "root_path", Value: "micro-svr", Comment: "etcd/mq/redis注册根路径"}).String()
 	fw.rootPathRedis = "/" + fw.rootPath + "/"
 	fw.rootPathMQ = fw.rootPath + "."
-	domainName := fw.wmConf.GetItemDefault("domain_name", "", "set the domain name, cert and key file name should be xxx.crt & xxx.key")
-	fw.gpsTimer = gopsu.String2Int64(fw.wmConf.GetItemDefault("gpstimer", "0", "是否使用广播的gps时间进行对时操作,0-不启用，1-启用（30～900s内进行矫正），2-忽略误差范围强制矫正"), 10)
+	domainName := fw.wmConf.GetDefault(&config.Item{Key: "domain_name", Value: "", Comment: "set the domain name, cert and key file name should be xxx.crt & xxx.key"}).String()
+	fw.gpsTimer = fw.wmConf.GetDefault(&config.Item{Key: "gpstimer", Value: "0", Comment: "是否使用广播的gps时间进行对时操作,0-不启用，1-启用（30～900s内进行矫正），2-忽略误差范围强制矫正"}).TryInt64()
 	// fw.mqP2nd, _ = strconv.ParseBool(fw.wmConf.GetItemDefault("mq_2nd_enable", "false", "第二个mq生产者，对接用"))
-	x, _ := fw.wmConf.GetItem("mq_2nd_enable")
-	fw.mqP2nd, _ = strconv.ParseBool(x)
-	tl, _ := fw.wmConf.GetItem("token_life")
-	if tt := gopsu.String2Int(tl, 10); tt > 1 && tt < 4320 {
+	fw.mqP2nd = fw.wmConf.GetItem("mq_2nd_enable").TryBool()
+
+	if tt := fw.wmConf.GetItem("token_life").TryInt64(); tt > 1 && tt < 4320 {
 		fw.tokenLife = time.Minute * time.Duration(tt)
 	}
-	fw.wmConf.Save()
+	fw.wmConf.ToFile()
 	if domainName != "" {
 		if pathtool.IsExist(filepath.Join(fw.baseCAPath, domainName+".crt")) && pathtool.IsExist(filepath.Join(fw.baseCAPath, domainName+".key")) {
 			fw.httpCert = filepath.Join(fw.baseCAPath, domainName+".crt")
@@ -403,11 +402,8 @@ func (fw *WMFrameWorkV2) loadConfigure(f string) {
 		fw.httpProtocol = "https://"
 	}
 	// 以下参数不自动生成，影响dorequest性能
-	s, err := fw.wmConf.GetItem("tr_timeo")
-	if err == nil {
-		if gopsu.String2Int(s, 10) > 5 {
-			fw.reqTimeo = time.Second * time.Duration(gopsu.String2Int(s, 10))
-		}
+	if tr := fw.wmConf.GetItem("tr_timeo").TryInt64(); tr > 5 {
+		fw.reqTimeo = time.Second * time.Duration(tr)
 	}
 }
 
@@ -422,7 +418,7 @@ func (fw *WMFrameWorkV2) LogDefaultWriter() io.Writer {
 }
 
 // ConfClient 配置文件实例
-func (fw *WMFrameWorkV2) ConfClient() *gopsu.ConfData {
+func (fw *WMFrameWorkV2) ConfClient() *config.File {
 	return fw.wmConf
 }
 
@@ -431,32 +427,32 @@ func (fw *WMFrameWorkV2) ReadConfigItem(key, value, remark string) string {
 	if fw.wmConf == nil {
 		return ""
 	}
-	return fw.wmConf.GetItemDefault(key, value, remark)
+	return fw.wmConf.GetDefault(&config.Item{Key: key, Value: config.VString(value), Comment: remark}).String()
 }
 
 // ReadConfigKeys 获取配置所有key
 func (fw *WMFrameWorkV2) ReadConfigKeys() []string {
-	return fw.wmConf.GetKeys()
+	return fw.wmConf.Keys()
 }
 
 // ReadConfigAll 获取配置所有item
 func (fw *WMFrameWorkV2) ReadConfigAll() string {
-	return fw.wmConf.GetAll()
+	return fw.wmConf.Print()
 }
 
 // ReloadConfig 重新读取
 func (fw *WMFrameWorkV2) ReloadConfig() error {
-	return fw.wmConf.Reload()
+	return fw.wmConf.FromFile("")
 }
 
 // WriteConfigItem 更新key
 func (fw *WMFrameWorkV2) WriteConfigItem(key, value string) {
-	fw.wmConf.UpdateItem(key, value)
+	fw.wmConf.PutItem(&config.Item{Key: key, Value: config.VString(value)})
 }
 
 // WriteConfig 保存配置
 func (fw *WMFrameWorkV2) WriteConfig() {
-	fw.wmConf.Save()
+	fw.wmConf.ToFile()
 }
 
 // Tag 版本标签

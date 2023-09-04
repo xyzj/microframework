@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/xyzj/gopsu"
+	config "github.com/xyzj/gopsu/confile"
 	"github.com/xyzj/gopsu/json"
 	"github.com/xyzj/gopsu/loopfunc"
 )
@@ -73,18 +74,22 @@ import (
 
 // newRedisETCDClient newRedisETCDClient
 func (fw *WMFrameWorkV2) newRedisETCDClient() {
-	fw.etcdCtl.regAddr = fw.wmConf.GetItemDefault("etcd_reg", "", "服务注册地址,ip[:port]格式，不指定port时，自动使用http启动参数的端口")
-	fw.etcdCtl.enable, _ = strconv.ParseBool(fw.wmConf.GetItemDefault("etcd_enable", "true", "是否启用服务注册"))
-	fw.etcdCtl.v6 = false //, _ = strconv.ParseBool(fw.wmConf.GetItemDefault("etcd_v6", "false", "是否优先使用v6地址"))
-	xaddr := fw.wmConf.GetItemDefault("etcd_reg_"+strings.ReplaceAll(fw.serverName, "-"+*nameTail, ""), "", "配置该项时，忽略etcd_reg设置。服务注册地址,ip[:port]格式，不指定port时，自动使用http启动参数的端口")
-	if xaddr != "" {
-		fw.etcdCtl.regAddr = xaddr
+	namekey := "etcd_reg_" + strings.ReplaceAll(fw.serverName, "-"+*nameTail, "")
+	// fw.etcdCtl.regAddr = fw.wmConf.GetDefault(&config.Item{Key: "etcd_reg", Value: "", Comment: "服务注册地址,ip[:port]格式，不指定port时，自动使用http启动参数的端口"}).String()
+	fw.etcdCtl.enable = fw.wmConf.GetDefault(&config.Item{Key: "etcd_enable", Value: "true", Comment: "是否启用服务注册"}).TryBool()
+	fw.etcdCtl.v6 = false                                   //, _ = strconv.ParseBool(fw.wmConf.GetItemDefault("etcd_v6", "false", "是否优先使用v6地址"))
+	fw.etcdCtl.regAddr = string(fw.wmConf.GetItem(namekey)) // fw.wmConf.GetDefault(&config.Item{Key: namekey, Value: "", Comment: "配置该项时，忽略etcd_reg设置。服务注册地址,ip[:port]格式，不指定port时，自动使用http启动参数的端口"}).String()
+
+	if fw.etcdCtl.regAddr == "" {
+		fw.etcdCtl.regAddr = fw.wmConf.GetItem("etcd_reg").String()
 	}
 	if fw.etcdCtl.regAddr == "127.0.0.1" || fw.etcdCtl.regAddr == "" {
 		fw.etcdCtl.regAddr = gopsu.RealIP(fw.etcdCtl.v6)
 		// fw.wmConf.UpdateItem("etcd_reg", fw.etcdCtl.regAddr)
 	}
-	fw.wmConf.Save()
+	fw.wmConf.PutItem(&config.Item{Key: namekey, Value: config.VString(fw.etcdCtl.regAddr), Comment: "高优先级服务注册地址配置，ip[:port]格式，不指定port时，自动使用http启动参数的端口，当设置时，忽略db_name配置值"})
+
+	fw.wmConf.ToFile()
 	if !fw.etcdCtl.enable {
 		return
 	}

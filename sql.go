@@ -2,12 +2,12 @@ package wmfw
 
 import (
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/tidwall/sjson"
 	"github.com/xyzj/gopsu"
+	config "github.com/xyzj/gopsu/confile"
 	"github.com/xyzj/gopsu/db"
 	"github.com/xyzj/gopsu/pathtool"
 )
@@ -59,30 +59,32 @@ func (conf *dbConfigure) show() string {
 
 // Newfw.dbCtl.client mariadb client
 func (fw *WMFrameWorkV2) newDBClient(dbinit, dbupgrade string) bool {
-	fw.dbCtl.addr = fw.wmConf.GetItemDefault("db_addr", "127.0.0.1:3306", "sql服务地址,ip[:port[/instance]]格式")
-	fw.dbCtl.user = fw.wmConf.GetItemDefault("db_user", "root", "sql用户名")
-	fw.dbCtl.pwd = gopsu.DecodeString(fw.wmConf.GetItemDefault("db_pwd", "SsWAbSy8H1EOP3n5LdUQqls", "sql密码"))
-	fw.dbCtl.driver = fw.wmConf.GetItemDefault("db_drive", "mysql", "sql数据库驱动，mysql 或 mssql")
-	fw.dbCtl.enable, _ = strconv.ParseBool(fw.wmConf.GetItemDefault("db_enable", "true", "是否启用sql"))
-	fw.dbCtl.tls = fw.wmConf.GetItemDefault("db_tls", "false", "是否启用ssl加密, false or skip-verify")
-	fw.dbCtl.databases = fw.wmConf.GetItemDefault("db_name", "", "sql数据库名称，多个库用，仅支持orm`,`分割")
-	cdb := fw.wmConf.GetItemDefault("db_name_"+strings.ReplaceAll(fw.serverName, "-"+*nameTail, ""), "", "sql数据库名称，高优先级，用于多个服务共用一个配置时区分指定数据库名称，当设置时，优先级高于db_name")
-	if cdb != "" {
-		fw.dbCtl.databases = cdb
+	namekey := "db_name_" + strings.ReplaceAll(fw.serverName, "-"+*nameTail, "")
+	fw.dbCtl.addr = fw.wmConf.GetDefault(&config.Item{Key: "db_addr", Value: "127.0.0.1:3306", Comment: "sql服务地址,ip[:port[/instance]]格式"}).String()
+	fw.dbCtl.user = fw.wmConf.GetDefault(&config.Item{Key: "db_user", Value: "root", Comment: "sql用户名"}).String()
+	fw.dbCtl.pwd = fw.wmConf.GetDefault(&config.Item{Key: "db_pwd", Value: "SsWAbSy8H1EOP3n5LdUQqls", Comment: "sql密码"}).TryDecode()
+	fw.dbCtl.driver = fw.wmConf.GetDefault(&config.Item{Key: "db_drive", Value: "mysql", Comment: "sql数据库驱动，mysql 或 mssql"}).String()
+	fw.dbCtl.enable = fw.wmConf.GetDefault(&config.Item{Key: "db_enable", Value: "true", Comment: "是否启用sql"}).TryBool()
+	fw.dbCtl.tls = fw.wmConf.GetDefault(&config.Item{Key: "db_tls", Value: "false", Comment: "是否启用ssl加密, false or skip-verify"}).String()
+	// fw.dbCtl.databases = fw.wmConf.GetDefault(&config.Item{Key: "db_name", Value: "", Comment: "sql数据库名称，多个库(仅支持orm)用，`,`分割"}).String()
+	fw.dbCtl.databases = string(fw.wmConf.GetItem(namekey)) // fw.wmConf.GetDefault(&config.Item{Key: namekey, Value: "", Comment: "sql数据库名称，高优先级，用于多个服务共用一个配置时区分指定数据库名称，当设置时，优先级高于db_name"}).String()
+
+	if fw.dbCtl.databases == "" {
+		fw.dbCtl.databases = fw.wmConf.GetItem("db_name").String()
 	}
 
 	if fw.dbCtl.databases == "" {
-		fw.dbCtl.databases = "v5db_" + fw.serverName
-		fw.wmConf.UpdateItem("db_name", fw.dbCtl.databases)
-		fw.wmConf.Save()
+		fw.dbCtl.databases = "v5db_" + strings.ReplaceAll(fw.serverName, "-"+*nameTail, "")
 	}
+	fw.wmConf.PutItem(&config.Item{Key: namekey, Value: config.VString(fw.dbCtl.databases), Comment: "高优先级数据库名称配置，当设置时，忽略db_name配置值"})
+	fw.wmConf.ToFile()
 	// 兼容orm，常规连接仅采用第一个数据库
 	if strings.Contains(fw.dbCtl.databases, ",") {
 		fw.dbCtl.database = strings.Split(fw.dbCtl.databases, ",")[0]
 	} else {
 		fw.dbCtl.database = fw.dbCtl.databases
 	}
-	dbcache := true //, _ := strconv.ParseBool(fw.wmConf.GetItemDefault("db_cache", "true", "是否启用结果集缓存"))
+	dbcache := true //, _ := strconv.ParseBool(fw.wmConf.GetDefault(&config.Item{Key: "db_cache", "true", "是否启用结果集缓存"))
 	fw.dbCtl.show()
 	if !fw.dbCtl.enable {
 		return false
@@ -166,14 +168,14 @@ MAINTAIN:
 				continue
 			}
 			// 重新刷新配置
-			fw.dbCtl.mrgTables = strings.Split(fw.wmConf.GetItemDefault("db_mrg_tables", "", "使用mrg_myisam引擎分表的总表名称，用`,`分割多个总表"), ",")
-			fw.dbCtl.mrgMaxSubTables = gopsu.String2Int(fw.wmConf.GetItemDefault("db_mrg_maxsubtables", "10", "分表子表数量，最小为1"), 10)
-			fw.dbCtl.mrgSubTableSize = gopsu.String2Int64(fw.wmConf.GetItemDefault("db_mrg_subtablesize", "1800", "子表最大磁盘空间容量（MB），当超过该值时，进行分表操作,推荐默认值1800"), 10)
+			fw.dbCtl.mrgTables = strings.Split(fw.wmConf.GetDefault(&config.Item{Key: "db_mrg_tables", Value: "", Comment: "使用mrg_myisam引擎分表的总表名称，用`,`分割多个总表"}).String(), ",")
+			fw.dbCtl.mrgMaxSubTables = int(fw.wmConf.GetDefault(&config.Item{Key: "db_mrg_maxsubtables", Value: "10", Comment: "分表子表数量，最小为1"}).TryInt64())
+			fw.dbCtl.mrgSubTableSize = fw.wmConf.GetDefault(&config.Item{Key: "db_mrg_subtablesize", Value: "1800", Comment: "子表最大磁盘空间容量（MB），当超过该值时，进行分表操作,推荐默认值1800"}).TryInt64()
 			if fw.dbCtl.mrgSubTableSize < 1 {
 				fw.dbCtl.mrgSubTableSize = 10
 			}
-			fw.dbCtl.mrgSubTableRows = gopsu.String2Int64(fw.wmConf.GetItemDefault("db_mrg_subtablerows", "4500000", "子表最大行数，当超过该值时，进行分表操作，推荐默认值4500000"), 10)
-			fw.wmConf.Save()
+			fw.dbCtl.mrgSubTableRows = fw.wmConf.GetDefault(&config.Item{Key: "db_mrg_subtablerows", Value: "4500000", Comment: "子表最大行数，当超过该值时，进行分表操作，推荐默认值4500000"}).TryInt64()
+			fw.wmConf.ToFile()
 			for _, v := range fw.dbCtl.mrgTables {
 				tableName := strings.TrimSpace(v)
 				if tableName == "" {

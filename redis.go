@@ -3,13 +3,13 @@ package wmfw
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/tidwall/sjson"
 	"github.com/xyzj/gopsu"
+	config "github.com/xyzj/gopsu/confile"
 )
 
 var (
@@ -48,11 +48,11 @@ func (fw *WMFrameWorkV2) newRedisClient() bool {
 		fw.tryRedisVer()
 		return true
 	}
-	fw.redisCtl.addr = fw.wmConf.GetItemDefault("redis_addr", "127.0.0.1:6379", "redis服务地址,ip:port格式")
-	fw.redisCtl.pwd = gopsu.DecodeString(fw.wmConf.GetItemDefault("redis_pwd", "WcELCNqP5dCpvMmMbKDdvgb", "redis连接密码"))
-	fw.redisCtl.database, _ = strconv.Atoi(fw.wmConf.GetItemDefault("redis_db", "0", "redis数据库id"))
-	fw.redisCtl.enable, _ = strconv.ParseBool(fw.wmConf.GetItemDefault("redis_enable", "true", "是否启用redis"))
-	fw.wmConf.Save()
+	fw.redisCtl.addr = fw.wmConf.GetDefault(&config.Item{Key: "redis_addr", Value: "127.0.0.1:6379", Comment: "redis服务地址,ip:port格式"}).String()
+	fw.redisCtl.pwd = fw.wmConf.GetDefault(&config.Item{Key: "redis_pwd", Value: "WcELCNqP5dCpvMmMbKDdvgb", Comment: "redis连接密码"}).TryDecode()
+	fw.redisCtl.database = int(fw.wmConf.GetDefault(&config.Item{Key: "redis_db", Value: "0", Comment: "redis数据库id"}).TryInt64())
+	fw.redisCtl.enable = fw.wmConf.GetDefault(&config.Item{Key: "redis_enable", Value: "true", Comment: "是否启用redis"}).TryBool()
+	fw.wmConf.ToFile()
 	fw.redisCtl.show(fw.rootPath)
 	if !fw.redisCtl.enable {
 		return false

@@ -1,25 +1,25 @@
 package wmfw
 
 import (
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/xyzj/gopsu"
+	config "github.com/xyzj/gopsu/confile"
 	"github.com/xyzj/gopsu/mq"
 )
 
 func (fw *WMFrameWorkV2) loadMQConfig2nd() {
-	fw.rmqCtl2nd.addr = fw.wmConf.GetItemDefault("mq_2nd_addr", "127.0.0.1:5672", "mq服务地址,ip:port格式")
-	fw.rmqCtl2nd.user = fw.wmConf.GetItemDefault("mq_2nd_user", "arx7", "mq连接用户名")
-	fw.rmqCtl2nd.pwd = gopsu.DecodeString(fw.wmConf.GetItemDefault("mq_2nd_pwd", "WcELCNqP5dCpvMmMbKDdvgb", "mq连接密码"))
-	fw.rmqCtl2nd.vhost = fw.wmConf.GetItemDefault("mq_2nd_vhost", "", "mq虚拟域名")
-	fw.rmqCtl2nd.exchange = fw.wmConf.GetItemDefault("mq_2nd_exchange", "luwak_topic", "mq交换机名称")
-	fw.rmqCtl2nd.queueRandom = true //, _ = strconv.ParseBool(fw.wmConf.GetItemDefault("mq_queue_random", "true", "随机队列名，true-用于独占模式（此时 mq_durable=false,mq_autodel=true），false-负载均衡"))
-	fw.rmqCtl2nd.durable = false    //, _ = strconv.ParseBool(fw.wmConf.GetItemDefault("mq_durable", "false", "队列是否持久化"))
-	fw.rmqCtl2nd.autodel = true     // , _ = strconv.ParseBool(fw.wmConf.GetItemDefault("mq_autodel", "true", "队列在未使用时是否删除"))
-	fw.rmqCtl2nd.enable, _ = strconv.ParseBool(fw.wmConf.GetItemDefault("mq_2nd_enable", "false", "第二个mq生产者，对接用"))
+	fw.rmqCtl2nd.addr = fw.wmConf.GetDefault(&config.Item{Key: "mq_2nd_addr", Value: "127.0.0.1:5672", Comment: "mq服务地址,ip:port格式"}).String()
+	fw.rmqCtl2nd.user = fw.wmConf.GetDefault(&config.Item{Key: "mq_2nd_user", Value: "arx7", Comment: "mq连接用户名"}).String()
+	fw.rmqCtl2nd.pwd = fw.wmConf.GetDefault(&config.Item{Key: "mq_2nd_pwd", Value: "WcELCNqP5dCpvMmMbKDdvgb", Comment: "mq连接密码"}).TryDecode()
+	fw.rmqCtl2nd.vhost = fw.wmConf.GetDefault(&config.Item{Key: "mq_2nd_vhost", Value: "", Comment: "mq虚拟域名"}).String()
+	fw.rmqCtl2nd.exchange = fw.wmConf.GetDefault(&config.Item{Key: "mq_2nd_exchange", Value: "luwak_topic", Comment: "mq交换机名称"}).String()
+	fw.rmqCtl2nd.queueRandom = true //, _ = strconv.ParseBool(fw.wmConf.GetDefault(&config.Item{Key:"mq_queue_random", "true", "随机队列名，true-用于独占模式（此时 mq_durable=false,mq_autodel=true），false-负载均衡"))
+	fw.rmqCtl2nd.durable = false    //, _ = strconv.ParseBool(fw.wmConf.GetDefault(&config.Item{Key:"mq_durable", "false", "队列是否持久化"))
+	fw.rmqCtl2nd.autodel = true     // , _ = strconv.ParseBool(fw.wmConf.GetDefault(&config.Item{Key:"mq_autodel", "true", "队列在未使用时是否删除"))
+	fw.rmqCtl2nd.enable = fw.wmConf.GetDefault(&config.Item{Key: "mq_2nd_enable", Value: "false", Comment: "第二个mq生产者，对接用"}).TryBool()
 	fw.rmqCtl2nd.usetls = false //, _ = strconv.ParseBool(fw.wmConf.GetItemDefault("mq_tls", "true", "是否使用证书连接rabbitmq服务"))
 	fw.rmqCtl2nd.protocol = "amqps"
 	if !fw.rmqCtl2nd.usetls {
@@ -30,7 +30,7 @@ func (fw *WMFrameWorkV2) loadMQConfig2nd() {
 		fw.rmqCtl2nd.durable = false
 		fw.rmqCtl2nd.autodel = true
 	}
-	fw.wmConf.Save()
+	fw.wmConf.ToFile()
 	fw.rmqCtl2nd.show(fw.rootPath)
 }
 
