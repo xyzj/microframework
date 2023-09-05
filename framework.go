@@ -16,7 +16,7 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/xyzj/gopsu"
 	"github.com/xyzj/gopsu/cache"
-	config "github.com/xyzj/gopsu/confile"
+	"github.com/xyzj/gopsu/config"
 	"github.com/xyzj/gopsu/db"
 	"github.com/xyzj/gopsu/gocmd"
 	json "github.com/xyzj/gopsu/json"
@@ -379,7 +379,6 @@ func (fw *WMFrameWorkV2) loadConfigure(f string) {
 	fw.rootPath = fw.wmConf.GetDefault(&config.Item{Key: "root_path", Value: "micro-svr", Comment: "etcd/mq/redis注册根路径"}).String()
 	fw.rootPathRedis = "/" + fw.rootPath + "/"
 	fw.rootPathMQ = fw.rootPath + "."
-	domainName := fw.wmConf.GetDefault(&config.Item{Key: "domain_name", Value: "", Comment: "set the domain name, cert and key file name should be xxx.crt & xxx.key"}).String()
 	fw.gpsTimer = fw.wmConf.GetDefault(&config.Item{Key: "gpstimer", Value: "0", Comment: "是否使用广播的gps时间进行对时操作,0-不启用，1-启用（30～900s内进行矫正），2-忽略误差范围强制矫正"}).TryInt64()
 	// fw.mqP2nd, _ = strconv.ParseBool(fw.wmConf.GetItemDefault("mq_2nd_enable", "false", "第二个mq生产者，对接用"))
 	fw.mqP2nd = fw.wmConf.GetItem("mq_2nd_enable").TryBool()
@@ -388,13 +387,6 @@ func (fw *WMFrameWorkV2) loadConfigure(f string) {
 		fw.tokenLife = time.Minute * time.Duration(tt)
 	}
 	fw.wmConf.ToFile()
-	if domainName != "" {
-		if pathtool.IsExist(filepath.Join(fw.baseCAPath, domainName+".crt")) && pathtool.IsExist(filepath.Join(fw.baseCAPath, domainName+".key")) {
-			fw.httpCert = filepath.Join(fw.baseCAPath, domainName+".crt")
-			fw.httpKey = filepath.Join(fw.baseCAPath, domainName+".key")
-			fw.httpProtocol = "https://"
-		}
-	}
 	// 检查高优先级输入参数，覆盖
 	if *cert != "" && *key != "" && pathtool.IsExist(*cert) && pathtool.IsExist(*key) {
 		fw.httpCert = *cert

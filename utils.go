@@ -14,7 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/xyzj/gopsu"
 	"github.com/xyzj/gopsu/cache"
-	config "github.com/xyzj/gopsu/confile"
+	"github.com/xyzj/gopsu/config"
 	"github.com/xyzj/gopsu/logger"
 	"github.com/xyzj/gopsu/mapfx"
 	"gorm.io/gorm"

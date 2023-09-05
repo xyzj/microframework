@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/xyzj/gopsu"
-	config "github.com/xyzj/gopsu/confile"
+	"github.com/xyzj/gopsu/config"
 	"github.com/xyzj/gopsu/json"
 	"github.com/xyzj/gopsu/loopfunc"
 )

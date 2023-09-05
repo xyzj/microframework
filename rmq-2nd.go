@@ -6,7 +6,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/xyzj/gopsu"
-	config "github.com/xyzj/gopsu/confile"
+	"github.com/xyzj/gopsu/config"
 	"github.com/xyzj/gopsu/mq"
 )
 
