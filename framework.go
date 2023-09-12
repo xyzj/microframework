@@ -188,7 +188,7 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 		}(*logLevel),
 		*logLevel,
 		*logDays,
-		*logLazy,
+		true,
 		cl...)
 	// fw.coreWriter = fw.wmLog.DefaultWriter()
 	// fw.wmLog = &StdLogger{
@@ -220,7 +220,7 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 		}(*logLevel),
 		MaxDays:    *logDays,
 		ZipFile:    *logDays > 10,
-		DelayWrite: *logLazy,
+		DelayWrite: true,
 	})
 	if opv2.ConfigFile == "" {
 		opv2.ConfigFile = *conf

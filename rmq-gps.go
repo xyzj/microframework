@@ -21,7 +21,7 @@ func (fw *WMFrameWorkV2) newGPSConsumer() {
 		QueueDurable:       true,
 		ExchangeAutoDelete: true,
 		ExchangeDurable:    true,
-		ExchangeName:       "luwak_topic",
+		ExchangeName:       fw.rmqCtl.exchange,
 		QueueName:          fw.rootPath + "_" + fw.serverName + "_gps_" + MD5Worker.Hash(gopsu.Bytes(time.Now().Format("150405000"))),
 		VHost:              fw.rmqCtl.vhost,
 		Username:           fw.rmqCtl.user,

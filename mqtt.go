@@ -2,7 +2,9 @@ package wmfw
 
 import (
 	"strings"
+	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/tidwall/sjson"
 	"github.com/xyzj/gopsu"
 	"github.com/xyzj/gopsu/config"
@@ -57,22 +59,31 @@ func (fw *WMFrameWorkV2) newMQTTClient(bindkeys []string, fRecv func(topic strin
 }
 
 // WriteMQTT 发送mqtt消息
-func (fw *WMFrameWorkV2) WriteMQTT(key string, msg []byte, appendhead bool) {
+func (fw *WMFrameWorkV2) WriteMQTT(key string, value []byte, appendhead bool) {
+	if fw.mqttCtl.client == nil {
+		return
+	}
 	if !fw.mqttCtl.client.IsConnectionOpen() {
 		return
 	}
 	if appendhead && !strings.HasPrefix(key, fw.rootPath) {
 		key = fw.rootPath + "/" + key
 	}
-	err := fw.mqttCtl.client.Write(key, msg)
+	err := fw.mqttCtl.client.Write(key, value)
 	if err != nil {
 		fw.WriteError("[MQTT] E:", err.Error())
 		return
 	}
-	fw.WriteInfo("[MQTT] S:", key+" | "+gopsu.String(msg))
+	fw.WriteInfo("[MQTT] S:", key+" | "+gopsu.String(value))
 }
 
 // MQTTIsReady mqtt是否就绪
 func (fw *WMFrameWorkV2) MQTTIsReady() bool {
 	return fw.mqttCtl.client.IsConnectionOpen()
+}
+
+// WriteMQ 发送消息到rabbitmq和mqtt，如果启用的话
+func (fw *WMFrameWorkV2) WriteMQ(key string, value []byte, timeout time.Duration, msgproto ...proto.Message) {
+	fw.WriteRabbitMQ(key, value, timeout, msgproto...)
+	fw.WriteMQTT(key, value, true)
 }

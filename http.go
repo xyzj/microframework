@@ -354,21 +354,19 @@ func (fw *WMFrameWorkV2) newHTTPService(r *gin.Engine) {
 			vipUsers = ss
 		}
 	}
-	var err error
 	// if *debug || *cert == "" || *key == "" {
 	// 	err = fw.listenAndServeTLS(*webPort, r, "", "", "")
 	// } else {
-	t, err := fw.listenAndServeTLS(*webPort, r, fw.httpCert, fw.httpKey, "")
+	err := fw.listenAndServeTLS(*webPort, r, fw.httpCert, fw.httpKey, "")
 	// }
 	if err != nil {
 		// panic(fmt.Errorf("Failed start HTTP(S) server at :" + strconv.Itoa(*webPort) + " | " + err.Error()))
-		fw.WriteError("WEB", "Failed start "+t+" server at :"+strconv.Itoa(*webPort)+" | "+err.Error()+". >>> QUIT ...")
+		fw.WriteError("WEB", "Failed start web server at :"+strconv.Itoa(*webPort)+" | "+err.Error()+". >>> QUIT ...")
 		gocmd.SignalQuit()
 		return
 	}
-	fw.WriteSystem("WEB", fmt.Sprintf("Success start %s server at :%d", t, *webPort))
 }
-func (fw *WMFrameWorkV2) listenAndServeTLS(port int, h *gin.Engine, certfile, keyfile string, clientca string) (string, error) {
+func (fw *WMFrameWorkV2) listenAndServeTLS(port int, h *gin.Engine, certfile, keyfile string, clientca string) error {
 	// 路由处理
 	var findRoot = false
 	for _, v := range h.Routes() {
@@ -392,8 +390,8 @@ func (fw *WMFrameWorkV2) listenAndServeTLS(port int, h *gin.Engine, certfile, ke
 	}
 	// 启动http服务
 	if certfile == "" && keyfile == "" {
-		// fmt.Fprintf(writer, "%s [HTTP] Success start HTTP server at :%d\n", time.Now().Format(gopsu.ShortTimeFormat), port)
-		return "HTTP", s.ListenAndServe()
+		fw.WriteSystem("WEB", fmt.Sprintf("Success start HTTP server at :%d", port))
+		return s.ListenAndServe()
 	}
 	// 初始化证书
 	var tc = &tls.Config{
@@ -402,7 +400,7 @@ func (fw *WMFrameWorkV2) listenAndServeTLS(port int, h *gin.Engine, certfile, ke
 	var err error
 	tc.Certificates[0], err = tls.LoadX509KeyPair(certfile, keyfile)
 	if err != nil {
-		return "HTTPS", err
+		return err
 	}
 	if len(clientca) > 0 {
 		pool := x509.NewCertPool()
@@ -442,8 +440,8 @@ func (fw *WMFrameWorkV2) listenAndServeTLS(port int, h *gin.Engine, certfile, ke
 	// 启动证书维护线程
 	go fw.renewCA(s, certfile, keyfile)
 	// 启动https
-	// fmt.Fprintf(writer, "%s [HTTP] Success start HTTPS server at :%d\n", time.Now().Format(gopsu.ShortTimeFormat), port)
-	return "HTTPS", s.ListenAndServeTLS("", "")
+	fw.WriteSystem("WEB", fmt.Sprintf("Success start HTTPS server at :%d", port))
+	return s.ListenAndServeTLS("", "")
 }
 
 // RenewCA 更新ca证书

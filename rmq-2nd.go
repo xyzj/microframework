@@ -41,7 +41,7 @@ func (fw *WMFrameWorkV2) newMQProducer2nd() bool {
 		return false
 	}
 	opt := &mq.RabbitMQOpt{
-		ExchangeName:       "luwak_topic",
+		ExchangeName:       fw.rmqCtl2nd.exchange,
 		ExchangeDurable:    true,
 		ExchangeAutoDelete: true,
 		Addr:               fw.rmqCtl2nd.addr,

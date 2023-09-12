@@ -76,6 +76,7 @@ func (fw *WMFrameWorkV2) newDBClient(dbinit, dbupgrade string) bool {
 	if fw.dbCtl.databases == "" {
 		fw.dbCtl.databases = "v5db_" + strings.ReplaceAll(fw.serverName, "-"+*nameTail, "")
 	}
+	fw.wmConf.DelItem("db_name")
 	fw.wmConf.PutItem(&config.Item{Key: namekey, Value: config.VString(fw.dbCtl.databases), Comment: "高优先级数据库名称配置，当设置时，忽略db_name配置值"})
 	fw.wmConf.ToFile()
 	// 兼容orm，常规连接仅采用第一个数据库

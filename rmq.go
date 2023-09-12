@@ -390,3 +390,7 @@ func msgFromBytes(b []byte, pb proto.Message) string {
 	}
 	return pb.String()
 }
+
+func (fw *WMFrameWorkV2) PBBytes2String(b []byte, pb proto.Message) string {
+	return msgFromBytes(b, pb)
+}

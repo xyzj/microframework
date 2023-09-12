@@ -34,8 +34,6 @@ var (
 	logLevel = flag.Int("loglevel", 20, "set the file log level. Enable value is: 10,20,30,40; 1-only output to console")
 	// logDays 日志文件保留天数，默认10
 	logDays = flag.Int("logdays", 10, "set the max days of the log files to keep")
-	// logDelay 延迟写入日志文件，每秒检查写入缓存，并写入文件，非实时写入
-	logLazy = flag.Bool("loglazy", true, "延迟写入日志文件，每秒检查写入缓存，并写入文件，非实时写入")
 	// webPort 主端口
 	webPort = flag.Int("http", 6819, "set http port to listen on.")
 	// portable 把日志，缓存等目录创建在当前目录下，方便打包带走
