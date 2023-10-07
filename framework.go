@@ -2,6 +2,7 @@ package wmfw
 
 import (
 	"crypto/tls"
+	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -49,9 +50,6 @@ var favicon []byte
 // NewFrameWorkV2 初始化一个新的framework
 func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
 	// http 静态目录
-	// if !flag.Parsed() {
-	// 	flag.Parse()
-	// }
 	// if *ver {
 	// 	println(versionInfo)
 	// 	os.Exit(1)
@@ -59,6 +57,9 @@ func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
 	gocmd.DefaultProgram(&gocmd.Info{
 		Ver: versionInfo,
 	}).ExecuteDefault("run")
+	if !flag.Parsed() {
+		flag.Parse()
+	}
 	// 初始化
 	fw := &WMFrameWorkV2{
 		rootPath:   "micro-svr",

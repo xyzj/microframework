@@ -244,3 +244,8 @@ func (fw *WMFrameWorkV2) RedisETCDKeys() []string {
 	})
 	return ss
 }
+
+// EtcdRegAddr 返回当前注册地址
+func (fw *WMFrameWorkV2) EtcdRegAddr() string {
+	return fw.etcdCtl.regAddr
+}

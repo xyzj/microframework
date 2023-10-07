@@ -107,6 +107,8 @@ const (
 	ErrSQLDetail
 	// ErrSQLDuplicateEntry sql主键重复
 	ErrSQLDuplicateEntry
+	// ErrTokenIPChanged token ip变化
+	ErrTokenIPChanged
 )
 
 // NewErr 返回一个err类型
@@ -142,6 +144,8 @@ func NewErr(err ErrorType) *ErrorV2 {
 		return errSQL
 	case ErrSQLDuplicateEntry:
 		return errSQLDuplicateEntry
+	case ErrTokenIPChanged:
+		return &ErrorV2{fmtDetail: "User-Token IP has changed %s", Status: 0, Xfile: 11, httpStatus: http.StatusUnauthorized}
 	default:
 		return errUndefine
 	}

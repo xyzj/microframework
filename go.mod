@@ -94,7 +94,7 @@ require (
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	github.com/unrolled/secure v1.13.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/xyzj/bolt v0.0.0-20230727063130-55230685011f // indirect
+	go.etcd.io/bbolt v1.3.7 // indirect
 	golang.org/x/arch v0.4.0 // indirect
 	golang.org/x/crypto v0.12.0 // indirect
 	golang.org/x/net v0.14.0 // indirect

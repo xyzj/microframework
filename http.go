@@ -519,8 +519,8 @@ func (fw *WMFrameWorkV2) DoRequestWithTimeout(req *http.Request, timeo time.Dura
 	end := time.Since(start).String()
 	// 处理头
 	h := make(map[string]string)
-	h["resp_from"] = req.Host
-	h["resp_duration"] = end
+	h["Resp-From"] = req.Host
+	h["Resp-Duration"] = end
 	for k := range resp.Header {
 		h[k] = resp.Header.Get(k)
 	}
@@ -706,10 +706,9 @@ func (fw *WMFrameWorkV2) PrepareToken(shouldAbort bool, auth ...string) gin.Hand
 	return func(c *gin.Context) {
 		uuid := c.GetHeader("User-Token")
 		if len(uuid) != 36 {
-			ex := NewErr(ErrTokenNotFound).Format(uuid)
+			ex := NewErr(ErrTokenIllegal).Format(uuid)
 			if shouldAbort {
 				returnJSON(ex.HSt(), c, ex)
-				// c.AbortWithStatusJSON(ex.HSt(), ex)
 			}
 			c.AddParam("_error", ex.Error())
 			return
@@ -717,35 +716,39 @@ func (fw *WMFrameWorkV2) PrepareToken(shouldAbort bool, auth ...string) gin.Hand
 		tokenPath := fw.AppendRootPathRedis("usermanager/legal/" + MD5Worker.Hash(gopsu.Bytes(uuid)))
 		x, err := fw.ReadRedis(tokenPath)
 		if err != nil {
-			ex := NewErr(ErrTokenIllegal).Format(uuid)
-			if shouldAbort {
-				returnJSON(ex.HSt(), c, ex)
-				// c.AbortWithStatusJSON(ex.HSt(), ex)
-			}
-			c.AddParam("_error", ex.Error())
+			ex := NewErr(ErrTokenNotFound).Format(uuid)
+			// if shouldAbort {
+			returnJSON(ex.HSt(), c, ex)
+			// }
+			// c.AddParam("_error", ex.Error())
 			return
 		}
 		ans := gjson.Parse(x)
 		if !ans.Exists() { // token内容异常
 			ex := NewErr(ErrTokenNotUnderstand).Format(uuid)
-			if shouldAbort {
-				returnJSON(ex.HSt(), c, ex)
-				// c.AbortWithStatusJSON(ex.HSt(), ex)
-			}
-			c.AddParam("_error", ex.Error())
+			// if shouldAbort {
+			returnJSON(ex.HSt(), c, ex)
+			// }
+			// c.AddParam("_error", ex.Error())
 			fw.EraseRedis(tokenPath)
 			return
 		}
 		if ans.Get("expire").Int() > 0 && ans.Get("expire").Int() < time.Now().Unix() { // 用户过期
 			ex := NewErr(ErrTokenExpired).Format(uuid)
-			if shouldAbort {
-				returnJSON(ex.HSt(), c, ex)
-				// c.AbortWithStatusJSON(ex.HSt(), ex)
-			}
-			c.AddParam("_error", ex.Error())
+			// if shouldAbort {
+			returnJSON(ex.HSt(), c, ex)
+			// }
+			// c.AddParam("_error", ex.Error())
 			fw.EraseRedis(tokenPath)
 			return
 		}
+		// if ans.Get("source").String() == "pc" && ans.Get("from").String() != c.ClientIP() { // ip变化
+		// 	if c.GetHeader("Dev-Debug") != "1" {
+		// 		ex := NewErr(ErrTokenIPChanged).Format(uuid)
+		// 		returnJSON(ex.HSt(), c, ex)
+		// 		return
+		// 	}
+		// }
 		// auth信息查询
 		authbinding := make([]string, 0)
 		for _, v := range ans.Get("auth_binding").Array() {
@@ -829,6 +832,9 @@ func (fw *WMFrameWorkV2) PrepareToken(shouldAbort bool, auth ...string) gin.Hand
 func (fw *WMFrameWorkV2) PrepareTokenFromParams() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		uuid := c.Param("User-Token")
+		if len(uuid) != 36 {
+			uuid = c.Param("uuid")
+		}
 		if len(uuid) == 36 {
 			c.Request.Header.Set("User-Token", uuid)
 		}

@@ -5,6 +5,7 @@ package wmfw
 
 import (
 	"flag"
+	"fmt"
 	"io"
 	"net/http"
 	"runtime"
@@ -15,6 +16,7 @@ import (
 	"github.com/xyzj/gopsu"
 	"github.com/xyzj/gopsu/cache"
 	"github.com/xyzj/gopsu/config"
+	json "github.com/xyzj/gopsu/json"
 	"github.com/xyzj/gopsu/logger"
 	"github.com/xyzj/gopsu/mapfx"
 	"gorm.io/gorm"
@@ -227,4 +229,30 @@ func init() {
 // NotHere 返回nothere图片
 func NotHere() []byte {
 	return nothere
+}
+
+type AssetID string
+
+func (aid AssetID) String() string {
+	return string(aid)
+}
+
+func (aid *AssetID) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	*aid = AssetID(s)
+	return nil
+}
+func (aid *AssetID) MarshalJSON() ([]byte, error) {
+	if a := string(*aid); a == "" || a == "00000000000000000000" {
+		return []byte("\"\""), nil
+	}
+	return []byte("\"" + fmt.Sprintf("%020s", *aid) + "\""), nil
+}
+
+// EmptyAID 判断aid是否为空
+func (fw *WMFrameWorkV2) EmptyAID(aid string) bool {
+	return aid == "" || aid == "00000000000000000000"
 }
