@@ -2,13 +2,10 @@ package wmfw
 
 import (
 	"fmt"
-
-	"github.com/tidwall/sjson"
 )
 
 // etcd配置
 type etcdConfigure struct {
-	forshow string
 	// etcd服务地址
 	addr string
 	// 是否启用tls
@@ -57,21 +54,9 @@ type EtcdInfo struct {
 	Fulladdr    string `json:"-"`
 }
 
-func (conf *etcdConfigure) show(rootPath string) string {
-	conf.forshow, _ = sjson.Set("", "addr", conf.addr)
-	conf.forshow, _ = sjson.Set(conf.forshow, "use_tls", conf.usetls)
-	conf.forshow, _ = sjson.Set(conf.forshow, "root_path", rootPath)
-	return conf.forshow
-}
-
 // ETCDIsReady 返回ETCD可用状态
 func (fw *WMFrameWorkV2) ETCDIsReady() bool {
 	return fw.etcdCtl.ready
-}
-
-// ViewETCDConfig 查看ETCD配置,返回json字符串
-func (fw *WMFrameWorkV2) ViewETCDConfig() string {
-	return fw.etcdCtl.forshow
 }
 
 // Picker 选取服务地址

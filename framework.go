@@ -49,14 +49,25 @@ var favicon []byte
 
 // NewFrameWorkV2 初始化一个新的framework
 func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
-	// http 静态目录
-	// if *ver {
-	// 	println(versionInfo)
-	// 	os.Exit(1)
-	// }
-	gocmd.DefaultProgram(&gocmd.Info{
-		Ver: versionInfo,
-	}).ExecuteDefault("run")
+	gocmd.NewProgram(&gocmd.Info{
+		Ver: versionInfo}).AddCommand(
+		gocmd.CmdStart).AddCommand(
+		gocmd.CmdRestart).AddCommand(
+		gocmd.CmdStatus).AddCommand(
+		gocmd.CmdStop).AddCommand(
+		&gocmd.Command{
+			Name:     "run",
+			Descript: "run the program.",
+			RunWithExitCode: func(pinfo *gocmd.ProcInfo) int {
+				pinfo.Pid = os.Getpid()
+				pinfo.Save()
+				gocmd.SignalCapture(pinfo.Pfile, true, nil)
+				return -1
+			},
+		}).ExecuteDefault("run")
+	// gocmd.DefaultProgram(&gocmd.Info{
+	// 	Ver: versionInfo,
+	// }).ExecuteDefault("run")
 	if !flag.Parsed() {
 		flag.Parse()
 	}
@@ -64,7 +75,7 @@ func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
 	fw := &WMFrameWorkV2{
 		rootPath:   "micro-svr",
 		tokenLife:  time.Minute * 30,
-		wmConf:     &config.File{},
+		appConf:    &config.File{},
 		serverName: "xserver",
 		upTime:     time.Now().Format("2006-01-02 15:04:05 Mon"),
 		verJSON:    versionInfo,
@@ -112,18 +123,6 @@ func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
 		gopsu.DefaultConfDir, gopsu.DefaultLogDir, gopsu.DefaultCacheDir = gopsu.MakeRuntimeDirs(".")
 	} else {
 		gopsu.DefaultConfDir, gopsu.DefaultLogDir, gopsu.DefaultCacheDir = gopsu.MakeRuntimeDirs("..")
-	}
-	// 日志
-	switch *logLevel {
-	case 1, 20, 30, 40, 90:
-	default:
-		*logLevel = 10
-	}
-	if *debug {
-		*logLevel = 10
-	}
-	if *logDays < 3 {
-		*logDays = 3
 	}
 	// 设置基础路径
 	fw.baseCAPath = filepath.Join(gopsu.DefaultConfDir, "ca")
@@ -176,58 +175,10 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 	if fw.loggerMark == "" {
 		fw.loggerMark = fmt.Sprintf("%s-%05d", fw.serverName, *webPort)
 	}
-	cl := []byte{40, 90}
-	if *logLevel == 10 {
-		cl = append(cl, 10, 20, 30)
-	}
-	fw.wmLog = logger.NewLogger(gopsu.DefaultLogDir,
-		func(level int) string {
-			if level > 1 {
-				return fw.loggerMark + ".core"
-			}
-			return ""
-		}(*logLevel),
-		*logLevel,
-		*logDays,
-		true,
-		cl...)
-	// fw.coreWriter = fw.wmLog.DefaultWriter()
-	// fw.wmLog = &StdLogger{
-	// 	LogLevel:  *logLevel,
-	// 	LogWriter: fw.coreWriter,
-	// }
-	// fw.coreWriter = logger.NewWriter(&logger.OptLog{
-	// 	AutoRoll: *logLevel > 1,
-	// 	FileDir:  gopsu.DefaultLogDir,
-	// 	Filename: func(level int) string {
-	// 		if level > 1 {
-	// 			return fw.loggerMark + ".core"
-	// 		}
-	// 		return ""
-	// 	}(*logLevel),
-	// 	MaxDays:       *logDays,
-	// 	ZipFile:       *logDays > 10,
-	// 	SyncToConsole: *logLevel <= 10,
-	// 	DelayWrite:    *logLazy,
-	// })
-	fw.httpWriter = logger.NewWriter(&logger.OptLog{
-		AutoRoll: *logLevel > 1,
-		FileDir:  gopsu.DefaultLogDir,
-		Filename: func(level int) string {
-			if level > 1 {
-				return fw.loggerMark + ".http"
-			}
-			return ""
-		}(*logLevel),
-		MaxDays:    *logDays,
-		ZipFile:    *logDays > 10,
-		DelayWrite: true,
-	})
+	// 载入配置
 	if opv2.ConfigFile == "" {
 		opv2.ConfigFile = *conf
 	}
-	fw.cacheMem = cache.NewCacheWithWriter(70000, fw.wmLog.DefaultWriter())
-	// 载入配置
 	var cfpath string
 	if opv2.ConfigFile != "" {
 		if strings.ContainsAny(opv2.ConfigFile, "\\/") {
@@ -240,6 +191,36 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 		}
 	}
 	fw.loadConfigure(cfpath)
+	// 日志
+	cl := []byte{40, 90}
+	if logLevel == 10 {
+		cl = append(cl, 10, 20, 30)
+	}
+	fw.wmLog = logger.NewLogger(gopsu.DefaultLogDir,
+		func(level int) string {
+			if level > 1 {
+				return fw.loggerMark + ".core"
+			}
+			return ""
+		}(logLevel),
+		logLevel,
+		logDays,
+		false,
+		cl...)
+	fw.httpWriter = logger.NewWriter(&logger.OptLog{
+		AutoRoll: logLevel > 1,
+		FileDir:  gopsu.DefaultLogDir,
+		Filename: func(level int) string {
+			if level > 1 {
+				return fw.loggerMark + ".http"
+			}
+			return ""
+		}(logLevel),
+		MaxDays:    logDays,
+		ZipFile:    logDays > 10,
+		DelayWrite: true,
+	})
+	fw.cacheMem = cache.NewCacheWithWriter(70000, fw.wmLog.DefaultWriter())
 	// 前置处理方法，用于预初始化某些内容
 	if opv2.FrontFunc != nil {
 		opv2.FrontFunc()
@@ -289,6 +270,17 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 			fw.newMQConsumerV2(!opv2.UseMQConsumer.KeepQueue, xss, opv2.UseMQConsumer.RecvFunc)
 		}
 	}
+	// mqtt
+	if opv2.UseMQTT != nil {
+		if opv2.UseMQTT.Activation {
+			if opv2.UseMQTT.RecvFunc == nil {
+				opv2.UseMQTT.RecvFunc = func(key string, msg []byte) {
+					fw.WriteDebug("MQTT-D", "key:"+key+" | body:"+gopsu.String(msg))
+				}
+			}
+			fw.newMQTTClient(opv2.UseMQTT.BindKeys, opv2.UseMQTT.RecvFunc)
+		}
+	}
 	// sql
 	if opv2.UseSQL != nil {
 		if opv2.UseSQL.Activation {
@@ -299,23 +291,14 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 				}
 			} else {
 				// sql无法连接直接退出程序
+				fw.appConf.ToFile()
+				fw.baseConf.ToFile()
 				time.Sleep(time.Second)
 				os.Exit(1)
 			}
 			if opv2.UseSQL.SupportORM {
 				fw.newORMEngines()
 			}
-		}
-	}
-	// mqtt
-	if opv2.UseMQTT != nil {
-		if opv2.UseMQTT.Activation {
-			if opv2.UseMQTT.RecvFunc == nil {
-				opv2.UseMQTT.RecvFunc = func(key string, msg []byte) {
-					fw.WriteDebug("MQTT-D", "key:"+key+" | body:"+gopsu.String(msg))
-				}
-			}
-			fw.newMQTTClient(opv2.UseMQTT.BindKeys, opv2.UseMQTT.RecvFunc)
 		}
 	}
 	// gin http
@@ -360,6 +343,8 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 			ServerAddress:   "http://192.168.50.83:10097",
 		})
 	}
+	fw.appConf.ToFile()
+	fw.baseConf.ToFile()
 	fw.WriteSystem("SYS", "Service start:"+fw.verJSON)
 }
 
@@ -372,22 +357,22 @@ func (fw *WMFrameWorkV2) Run(opv2 *OptionFrameWorkV2) {
 
 // LoadConfigure 初始化配置
 func (fw *WMFrameWorkV2) loadConfigure(f string) {
-	var err error
-	fw.wmConf = config.NewConfig(f)
-	if err != nil {
-		println("load config error: " + err.Error())
+	fw.appConf = config.NewConfig(f)
+	if *ignoreBase {
+		fw.baseConf = fw.appConf
+	} else {
+		if baseConf := pathtool.JoinPathFromHere("base.conf"); pathtool.IsExist(baseConf) {
+			fw.baseConf = config.NewConfig(baseConf)
+		} else {
+			fw.baseConf = fw.appConf
+		}
 	}
-	fw.rootPath = fw.wmConf.GetDefault(&config.Item{Key: "root_path", Value: "micro-svr", Comment: "etcd/mq/redis注册根路径"}).String()
+	fw.rootPath = fw.baseConf.GetDefault(&config.Item{Key: "root_path", Value: "micro-svr", Comment: "etcd/mq/redis注册根路径"}).String()
 	fw.rootPathRedis = "/" + fw.rootPath + "/"
 	fw.rootPathMQ = fw.rootPath + "."
-	fw.gpsTimer = fw.wmConf.GetDefault(&config.Item{Key: "gpstimer", Value: "0", Comment: "是否使用广播的gps时间进行对时操作,0-不启用，1-启用（30～900s内进行矫正），2-忽略误差范围强制矫正"}).TryInt64()
-	// fw.mqP2nd, _ = strconv.ParseBool(fw.wmConf.GetItemDefault("mq_2nd_enable", "false", "第二个mq生产者，对接用"))
-	fw.mqP2nd = fw.wmConf.GetItem("mq_2nd_enable").TryBool()
+	fw.gpsTimer = fw.baseConf.GetDefault(&config.Item{Key: "gpstimer", Value: "0", Comment: "是否使用广播的gps时间进行对时操作,0-不启用，1-启用（30～900s内进行矫正），2-忽略误差范围强制矫正"}).TryInt64()
+	fw.mqP2nd = fw.baseConf.GetItem("mq_2nd_enable").TryBool()
 
-	if tt := fw.wmConf.GetItem("token_life").TryInt64(); tt > 1 && tt < 4320 {
-		fw.tokenLife = time.Minute * time.Duration(tt)
-	}
-	fw.wmConf.ToFile()
 	// 检查高优先级输入参数，覆盖
 	if *cert != "" && *key != "" && pathtool.IsExist(*cert) && pathtool.IsExist(*key) {
 		fw.httpCert = *cert
@@ -395,8 +380,34 @@ func (fw *WMFrameWorkV2) loadConfigure(f string) {
 		fw.httpProtocol = "https://"
 	}
 	// 以下参数不自动生成，影响dorequest性能
-	if tr := fw.wmConf.GetItem("tr_timeo").TryInt64(); tr > 5 {
+	if tr := fw.baseConf.GetItem("tr_timeo").TryInt64(); tr > 5 {
 		fw.reqTimeo = time.Second * time.Duration(tr)
+	}
+	switch fw.baseConf.GetDefault(&config.Item{Key: "log_level", Value: "info", Comment: "log level, enable value: debug, info, warn, error"}).String() {
+	case "debug":
+		logLevel = 10
+	case "warn":
+		logLevel = 30
+	case "error":
+		logLevel = 40
+	default:
+		logLevel = 20
+	}
+	switch x := fw.baseConf.GetDefault(&config.Item{Key: "log_days", Value: "10", Comment: "log file keep kays, 1~30"}).TryInt64(); x / 30 {
+	case 0, 1:
+		if x == 0 {
+			logDays = 10
+		} else {
+			logDays = int(x)
+		}
+	default:
+		logDays = 10
+	}
+	if logDays > 30 {
+		logDays = 30
+	}
+	if *debug {
+		logLevel = 10
 	}
 }
 
@@ -412,40 +423,50 @@ func (fw *WMFrameWorkV2) LogDefaultWriter() io.Writer {
 
 // ConfClient 配置文件实例
 func (fw *WMFrameWorkV2) ConfClient() *config.File {
-	return fw.wmConf
+	return fw.appConf
 }
 
 // ReadConfigItem 读取配置参数
 func (fw *WMFrameWorkV2) ReadConfigItem(key, value, remark string) string {
-	if fw.wmConf == nil {
+	if fw.appConf == nil {
 		return ""
 	}
-	return fw.wmConf.GetDefault(&config.Item{Key: key, Value: config.VString(value), Comment: remark}).String()
+	return fw.appConf.GetDefault(&config.Item{Key: key, Value: config.VString(value), Comment: remark}).String()
 }
 
 // ReadConfigKeys 获取配置所有key
 func (fw *WMFrameWorkV2) ReadConfigKeys() []string {
-	return fw.wmConf.Keys()
+	s := fw.appConf.Keys()
+	println(fw.appConf, fw.baseConf)
+	if fw.appConf != fw.baseConf {
+		s = append(s, fw.baseConf.Keys()...)
+	}
+	return s
 }
 
 // ReadConfigAll 获取配置所有item
 func (fw *WMFrameWorkV2) ReadConfigAll() string {
-	return fw.wmConf.Print()
+	s := fw.appConf.Print()
+
+	if fw.appConf != fw.baseConf {
+		s += "\n" + fw.baseConf.Print()
+	}
+	return s
 }
 
 // ReloadConfig 重新读取
 func (fw *WMFrameWorkV2) ReloadConfig() error {
-	return fw.wmConf.FromFile("")
+	return fw.appConf.FromFile("")
 }
 
 // WriteConfigItem 更新key
 func (fw *WMFrameWorkV2) WriteConfigItem(key, value string) {
-	fw.wmConf.PutItem(&config.Item{Key: key, Value: config.VString(value)})
+	fw.appConf.PutItem(&config.Item{Key: key, Value: config.VString(value)})
 }
 
 // WriteConfig 保存配置
 func (fw *WMFrameWorkV2) WriteConfig() {
-	fw.wmConf.ToFile()
+	fw.appConf.ToFile()
 }
 
 // Tag 版本标签
@@ -532,4 +553,9 @@ func (fw *WMFrameWorkV2) MarshalToString(v interface{}) string {
 		return ""
 	}
 	return b
+}
+
+// SetTokenLife 设置User-Token的有效期，默认30分钟
+func (fw *WMFrameWorkV2) SetTokenLife(t time.Duration) {
+	fw.tokenLife = t
 }

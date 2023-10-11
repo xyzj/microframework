@@ -172,7 +172,7 @@ func (fw *WMFrameWorkV2) NewHTTPEngineWithYaagSkip(skip []string, f ...gin.Handl
 		AllowMethods:     []string{"*"},
 		AllowHeaders:     []string{"*"},
 	}
-	if origins := fw.ReadConfigItem("origin", "", "允许的域，多个域名使用`,`隔开"); origins != "" {
+	if origins := fw.appConf.GetItem("origin").String(); origins != "" {
 		corsopt.AllowAllOrigins = false
 		for _, v := range strings.Split(origins, ",") {
 			if len(gopsu.SlicesIntersect([]string{v}, allowSchemas)) > 0 {
@@ -199,10 +199,6 @@ func (fw *WMFrameWorkV2) NewHTTPEngineWithYaagSkip(skip []string, f ...gin.Handl
 	r.Use(ginmiddleware.Recovery())
 	// 黑名单
 	r.Use(ginmiddleware.Blacklist(""))
-	// 其他中间件
-	if f != nil {
-		r.Use(f...)
-	}
 	r.GET("/favicon.ico", func(c *gin.Context) {
 		c.Header("Cache-Control", "private, max-age=86400")
 		c.Writer.Write(favicon)
@@ -226,15 +222,24 @@ func (fw *WMFrameWorkV2) NewHTTPEngineWithYaagSkip(skip []string, f ...gin.Handl
 	r.GET("/health/mod", fw.pageModCheck)
 	r.POST("/health/mod", fw.pageModCheck)
 	r.GET("/clearlog", fw.CheckRequired("name"), ginmiddleware.Clearlog)
-	r.GET("/uptime", fw.pageStatus)
+	r.GET("/uptime", ginmiddleware.ReadParams(), fw.pageStatus)
 	r.POST("/uptime", fw.pageStatus)
 	r.StaticFS("/downloadLog", http.Dir(gopsu.DefaultLogDir))
-	r.GET("/config/view", ginmiddleware.BasicAuth(), func(c *gin.Context) {
+	r.GET("/config/view", ginmiddleware.BasicAuth(), ginmiddleware.ReadParams(), func(c *gin.Context) {
 		configInfo := make(map[string]interface{})
 		configInfo["upTime"] = fw.upTime
 		configInfo["timer"] = time.Now().Format("2006-01-02 15:04:05 Mon")
 		configInfo["key"] = "服务配置信息"
-		configInfo["value"] = fw.wmConf.Print()
+		ss := []string{fw.cnf.ConfigFile}
+		if _, ok := c.Params.Get("fullpath"); ok {
+			x, err := filepath.Abs(fw.cnf.ConfigFile)
+			if err == nil {
+				ss = []string{x}
+			}
+		}
+		ss = append(ss, strings.Split(fw.appConf.Print(), "\n")...)
+		ss = append(ss, strings.Split(fw.baseConf.Print(), "\n")...)
+		configInfo["value"] = ss
 		c.Header("Content-Type", "text/html")
 		t, _ := template.New("viewconfig").Parse(TPLHEAD + TPLCSS + TPLBODY)
 		h := render.HTML{
@@ -266,14 +271,6 @@ func (fw *WMFrameWorkV2) NewHTTPEngineWithYaagSkip(skip []string, f ...gin.Handl
 		}
 	})
 
-	// 静态资源路由
-	for k, v := range dirs {
-		if strings.Contains(v, ":") {
-			r.Static("/"+strings.Split(v, ":")[0], strings.Split(v, ":")[1])
-			println(fmt.Sprintf("dir %d. /%s/", k+1, strings.Split(v, ":")[0]))
-			skip = append(skip, "/"+strings.Split(v, ":")[0]+"/")
-		}
-	}
 	// 轻松一下
 	r.GET("/xgame/:game", games.GameGroup)
 	r.GET("/devquotes", ginmiddleware.PageDev)
@@ -296,6 +293,10 @@ func (fw *WMFrameWorkV2) NewHTTPEngineWithYaagSkip(skip []string, f ...gin.Handl
 	yaag.Init(yaagConfig)
 	r.Use(yaaggin.Document(skip...))
 
+	// 其他中间件
+	if f != nil {
+		r.Use(f...)
+	}
 	return r
 }
 
@@ -333,11 +334,7 @@ func (fw *WMFrameWorkV2) newHTTPService(r *gin.Engine) {
 	// 	r.GET("/xroot", ginmiddleware.PageDefault)
 	// }
 	if !findRoot {
-		if *appcompatible {
-			r.GET("/", ginmiddleware.PageEmpty)
-		} else {
-			r.GET("/", ginmiddleware.PageAbort)
-		}
+		r.GET("/", ginmiddleware.PageEmpty)
 	}
 	if sss != "" {
 		r.GET("/showroutes", ginmiddleware.BasicAuth("whowants2seethis?:iam,yourcreator."),
@@ -362,7 +359,7 @@ func (fw *WMFrameWorkV2) newHTTPService(r *gin.Engine) {
 	if err != nil {
 		// panic(fmt.Errorf("Failed start HTTP(S) server at :" + strconv.Itoa(*webPort) + " | " + err.Error()))
 		fw.WriteError("WEB", "Failed start web server at :"+strconv.Itoa(*webPort)+" | "+err.Error()+". >>> QUIT ...")
-		gocmd.SignalQuit()
+		gocmd.SendSignalQuit()
 		return
 	}
 }
@@ -676,7 +673,13 @@ func (fw *WMFrameWorkV2) pageStatus(c *gin.Context) {
 	statusInfo["timer"] = time.Now().Format("2006-01-02 15:04:05 Mon")
 	statusInfo["key"] = "服务运行信息"
 	fmtver, _ := json.MarshalIndent(gjson.Parse(fw.verJSON).Value(), "", "")
-	statusInfo["value"] = strings.Split(rever.Replace(gopsu.String(fmtver)), "\n")
+
+	ss := []string{"process_name: " + pathtool.GetExecName()}
+	if _, ok := c.Params.Get("fullpath"); ok {
+		ss = []string{"process_name: " + pathtool.JoinPathFromHere(pathtool.GetExecName())}
+	}
+	ss = append(ss, strings.Split(rever.Replace(gopsu.String(fmtver)), "\n")...)
+	statusInfo["value"] = ss
 	switch c.Request.Method {
 	case "GET":
 		c.Header("Content-Type", "text/html")
@@ -692,7 +695,7 @@ func (fw *WMFrameWorkV2) pageStatus(c *gin.Context) {
 		c.Set("server_time", statusInfo["timer"].(string))
 		c.Set("start_at", statusInfo["upTime"].(string))
 		c.Set("ver", gjson.Parse(fw.verJSON).Value())
-		c.Set("conf", fw.wmConf.Print())
+		c.Set("conf", fw.appConf.Print())
 		// fw.DealWithSuccessOK(c)
 		returnJSON(200, c, c.Keys)
 	}
@@ -844,28 +847,26 @@ func (fw *WMFrameWorkV2) PrepareTokenFromParams() gin.HandlerFunc {
 // RenewToken 更新uuid时效
 func (fw *WMFrameWorkV2) RenewToken() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		go func() {
-			if c.GetHeader("Token_alive") == "0" {
-				return
-			}
-			uuid := c.GetHeader("User-Token")
-			if len(uuid) != 36 {
-				return
-			}
-			x, err := fw.ReadRedis("usermanager/legal/" + MD5Worker.Hash(gopsu.Bytes(uuid)))
-			if err != nil {
-				return
-			}
-			// 更新redis的对应键值的有效期
-			if gjson.Parse(x).Get("source").String() == "local" {
-				return
-			}
-			if _, ok := fw.tokenCache.Get(uuid); ok { // 1分钟内不重复刷新
-				return
-			}
-			fw.ExpireUserToken(uuid)
-			fw.tokenCache.Set(uuid, struct{}{}, time.Minute)
-		}()
+		if c.GetHeader("Token_alive") == "0" {
+			return
+		}
+		uuid := c.GetHeader("User-Token")
+		if len(uuid) != 36 {
+			return
+		}
+		x, err := fw.ReadRedis("usermanager/legal/" + MD5Worker.Hash(gopsu.Bytes(uuid)))
+		if err != nil {
+			return
+		}
+		// 更新redis的对应键值的有效期
+		if gjson.Parse(x).Get("source").String() == "local" {
+			return
+		}
+		if _, ok := fw.tokenCache.Get(uuid); ok { // 1分钟内不重复刷新
+			return
+		}
+		fw.ExpireUserToken(uuid)
+		fw.tokenCache.Set(uuid, struct{}{}, time.Minute)
 	}
 }
 
@@ -1000,11 +1001,6 @@ func (fw *WMFrameWorkV2) JSON2Key(c *gin.Context, s string) {
 			return true
 		})
 	}
-}
-
-// SetTokenLife 设置User-Token的有效期，默认30分钟
-func (fw *WMFrameWorkV2) SetTokenLife(t time.Duration) {
-	fw.tokenLife = t
 }
 
 // CheckRequired 校验必填项

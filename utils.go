@@ -24,8 +24,6 @@ import (
 
 // 启动参数
 var (
-	// app兼容项目
-	appcompatible = flag.Bool("appcompatible", true, "add root path for app connect test")
 	// pyroscope debug
 	pyroscope = flag.Bool("pyroscope", false, "set true to enable pyroscope debug, should only be used in DEV-LAN")
 	// forceHTTP 强制http
@@ -33,9 +31,9 @@ var (
 	//  是否启用调试模式
 	debug = flag.Bool("debug", false, "set if enable debug info.")
 	// logLevel 日志等级，可选项1,10,20,30,40
-	logLevel = flag.Int("loglevel", 20, "set the file log level. Enable value is: 10,20,30,40; 1-only output to console")
+	logLevel1 = flag.Int("loglevel", 20, "[Discarded] use base.conf")
 	// logDays 日志文件保留天数，默认10
-	logDays = flag.Int("logdays", 10, "set the max days of the log files to keep")
+	logDays1 = flag.Int("logdays", 10, "[Discarded] use base.conf")
 	// webPort 主端口
 	webPort = flag.Int("http", 6819, "set http port to listen on.")
 	// portable 把日志，缓存等目录创建在当前目录下，方便打包带走
@@ -47,11 +45,17 @@ var (
 	// 证书crt文件
 	cert = flag.String("cert", "", "set https cert file path")
 	// 证书key文件
-	key  = flag.String("key", "", "set https key file path")
-	dirs gopsu.SliceFlag
+	key          = flag.String("key", "", "set https key file path")
+	disableRedis = flag.Bool("disable-redis", false, "only used for program debug, force disable redis client")
+	disableRMQ   = flag.Bool("disable-rmq", false, "only used for program debug, force disable rabbitmq client")
+	disableDB    = flag.Bool("disable-db", false, "only used for program debug, force disable db client")
+	disableMqtt  = flag.Bool("disable-mqtt", false, "only used for program debug, force disable mqtt client")
+	ignoreBase   = flag.Bool("ignore-base-config", false, "do not load `base.conf`, only use `-conf=`")
 )
 
 var (
+	logLevel = 20
+	logDays  = 10
 	// CWorker 加密
 	CWorker *gopsu.CryptoWorker // = gopsu.GetNewCryptoWorker(gopsu.CryptoAES128CBC)
 	// MD5Worker md5计算
@@ -184,7 +188,8 @@ type WMFrameWorkV2 struct {
 	cacheMem       *cache.XCache
 	ft             *mapfx.BaseMap[string]             // 固定token
 	mapEtcd        *mapfx.StructMap[string, EtcdInfo] //*mapETCD
-	wmConf         *config.File                       // 配置
+	appConf        *config.File                       // 配置
+	baseConf       *config.File                       // 公共配置，只读，不写
 	etcdCtl        *etcdConfigure
 	redisCtl       *redisConfigure
 	dbCtl          *dbConfigure
@@ -223,7 +228,6 @@ func init() {
 	// CWorker 加密
 	CWorker = gopsu.GetNewCryptoWorker(gopsu.CryptoAES128CBC)
 	CWorker.SetKey("(NMNle+XW!ykVjf1", "Zq0V+,.2u|3sGAzH")
-	flag.Var(&dirs, "dir", "example: -dir=name:path -dir name2:path2")
 }
 
 // NotHere 返回nothere图片

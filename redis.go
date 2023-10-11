@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/tidwall/sjson"
 	"github.com/xyzj/gopsu"
 	"github.com/xyzj/gopsu/config"
 )
@@ -18,7 +17,6 @@ var (
 
 // redis配置
 type redisConfigure struct {
-	forshow string
 	// redis服务地址
 	addr string
 	// 访问密码
@@ -34,26 +32,17 @@ type redisConfigure struct {
 	ready   bool
 }
 
-func (conf *redisConfigure) show(rootPath string) string {
-	conf.forshow, _ = sjson.Set("", "addr", conf.addr)
-	conf.forshow, _ = sjson.Set(conf.forshow, "pwd", CWorker.Encrypt(conf.pwd))
-	conf.forshow, _ = sjson.Set(conf.forshow, "dbname", conf.database)
-	conf.forshow, _ = sjson.Set(conf.forshow, "root_path", rootPath)
-	return conf.forshow
-}
-
 // NewRedisClient 新的redis client
 func (fw *WMFrameWorkV2) newRedisClient() bool {
 	if fw.redisCtl.ready {
 		fw.tryRedisVer()
 		return true
 	}
-	fw.redisCtl.addr = fw.wmConf.GetDefault(&config.Item{Key: "redis_addr", Value: "127.0.0.1:6379", Comment: "redis服务地址,ip:port格式"}).String()
-	fw.redisCtl.pwd = fw.wmConf.GetDefault(&config.Item{Key: "redis_pwd", Value: "WcELCNqP5dCpvMmMbKDdvgb", Comment: "redis连接密码"}).TryDecode()
-	fw.redisCtl.database = int(fw.wmConf.GetDefault(&config.Item{Key: "redis_db", Value: "0", Comment: "redis数据库id"}).TryInt64())
-	fw.redisCtl.enable = fw.wmConf.GetDefault(&config.Item{Key: "redis_enable", Value: "true", Comment: "是否启用redis"}).TryBool()
-	fw.wmConf.ToFile()
-	fw.redisCtl.show(fw.rootPath)
+	fw.redisCtl.addr = fw.baseConf.GetDefault(&config.Item{Key: "redis_addr", Value: "127.0.0.1:6379", Comment: "redis服务地址,ip:port格式"}).String()
+	fw.redisCtl.pwd = fw.baseConf.GetDefault(&config.Item{Key: "redis_pwd", Value: "WcELCNqP5dCpvMmMbKDdvgb", Comment: "redis连接密码"}).TryDecode()
+	fw.redisCtl.database = int(fw.baseConf.GetDefault(&config.Item{Key: "redis_db", Value: "0", Comment: "redis数据库id"}).TryInt64())
+	fw.redisCtl.enable = !*disableRedis // fw.baseConf.GetDefault(&config.Item{Key: "redis_enable", Value: "true", Comment: "是否启用redis"}).TryBool()
+
 	if !fw.redisCtl.enable {
 		return false
 	}
@@ -342,11 +331,6 @@ func (fw *WMFrameWorkV2) RedisClient() *redis.Client {
 // RedisIsReady 返回redis可用状态
 func (fw *WMFrameWorkV2) RedisIsReady() bool {
 	return fw.redisCtl.ready
-}
-
-// ViewRedisConfig 查看redis配置,返回json字符串
-func (fw *WMFrameWorkV2) ViewRedisConfig() string {
-	return fw.redisCtl.forshow
 }
 
 // ExpireUserToken 更新token有效期

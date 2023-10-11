@@ -11,16 +11,16 @@ import (
 )
 
 func (fw *WMFrameWorkV2) loadMQConfig2nd() {
-	fw.rmqCtl2nd.addr = fw.wmConf.GetDefault(&config.Item{Key: "mq_2nd_addr", Value: "127.0.0.1:5672", Comment: "mq服务地址,ip:port格式"}).String()
-	fw.rmqCtl2nd.user = fw.wmConf.GetDefault(&config.Item{Key: "mq_2nd_user", Value: "arx7", Comment: "mq连接用户名"}).String()
-	fw.rmqCtl2nd.pwd = fw.wmConf.GetDefault(&config.Item{Key: "mq_2nd_pwd", Value: "WcELCNqP5dCpvMmMbKDdvgb", Comment: "mq连接密码"}).TryDecode()
-	fw.rmqCtl2nd.vhost = fw.wmConf.GetDefault(&config.Item{Key: "mq_2nd_vhost", Value: "", Comment: "mq虚拟域名"}).String()
-	fw.rmqCtl2nd.exchange = fw.wmConf.GetDefault(&config.Item{Key: "mq_2nd_exchange", Value: "luwak_topic", Comment: "mq交换机名称"}).String()
-	fw.rmqCtl2nd.queueRandom = true //, _ = strconv.ParseBool(fw.wmConf.GetDefault(&config.Item{Key:"mq_queue_random", "true", "随机队列名，true-用于独占模式（此时 mq_durable=false,mq_autodel=true），false-负载均衡"))
-	fw.rmqCtl2nd.durable = false    //, _ = strconv.ParseBool(fw.wmConf.GetDefault(&config.Item{Key:"mq_durable", "false", "队列是否持久化"))
-	fw.rmqCtl2nd.autodel = true     // , _ = strconv.ParseBool(fw.wmConf.GetDefault(&config.Item{Key:"mq_autodel", "true", "队列在未使用时是否删除"))
-	fw.rmqCtl2nd.enable = fw.wmConf.GetDefault(&config.Item{Key: "mq_2nd_enable", Value: "false", Comment: "第二个mq生产者，对接用"}).TryBool()
-	fw.rmqCtl2nd.usetls = false //, _ = strconv.ParseBool(fw.wmConf.GetItemDefault("mq_tls", "true", "是否使用证书连接rabbitmq服务"))
+	fw.rmqCtl2nd.addr = fw.appConf.GetDefault(&config.Item{Key: "mq_2nd_addr", Value: "127.0.0.1:5672", Comment: "mq服务地址,ip:port格式"}).String()
+	fw.rmqCtl2nd.user = fw.appConf.GetDefault(&config.Item{Key: "mq_2nd_user", Value: "arx7", Comment: "mq连接用户名"}).String()
+	fw.rmqCtl2nd.pwd = fw.appConf.GetDefault(&config.Item{Key: "mq_2nd_pwd", Value: "WcELCNqP5dCpvMmMbKDdvgb", Comment: "mq连接密码"}).TryDecode()
+	fw.rmqCtl2nd.vhost = fw.appConf.GetDefault(&config.Item{Key: "mq_2nd_vhost", Value: "", Comment: "mq虚拟域名"}).String()
+	fw.rmqCtl2nd.exchange = fw.appConf.GetDefault(&config.Item{Key: "mq_2nd_exchange", Value: "luwak_topic", Comment: "mq交换机名称"}).String()
+	fw.rmqCtl2nd.queueRandom = true
+	fw.rmqCtl2nd.durable = false
+	fw.rmqCtl2nd.autodel = true
+	fw.rmqCtl2nd.enable = fw.appConf.GetDefault(&config.Item{Key: "mq_2nd_enable", Value: "false", Comment: "第二个mq生产者，对接用"}).TryBool()
+	fw.rmqCtl2nd.usetls = false
 	fw.rmqCtl2nd.protocol = "amqps"
 	if !fw.rmqCtl2nd.usetls {
 		fw.rmqCtl2nd.addr = strings.Replace(fw.rmqCtl2nd.addr, "5671", "5672", 1)
@@ -30,8 +30,6 @@ func (fw *WMFrameWorkV2) loadMQConfig2nd() {
 		fw.rmqCtl2nd.durable = false
 		fw.rmqCtl2nd.autodel = true
 	}
-	fw.wmConf.ToFile()
-	fw.rmqCtl2nd.show(fw.rootPath)
 }
 
 // newMQProducer2nd NewRabbitfw.rmqCtl2nd.mqProducer
@@ -93,9 +91,4 @@ func (fw *WMFrameWorkV2) WriteRabbitMQ2nd(key string, value []byte, expire time.
 	// }
 	fw.WriteInfo("MQP2nd", "S:"+key+"|"+gopsu.String(value))
 	return nil
-}
-
-// ViewRabbitMQConfig2nd 查看rabbitmq配置,返回json字符串
-func (fw *WMFrameWorkV2) ViewRabbitMQConfig2nd() string {
-	return fw.rmqCtl2nd.forshow
 }

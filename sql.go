@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tidwall/sjson"
 	"github.com/xyzj/gopsu"
 	"github.com/xyzj/gopsu/config"
 	"github.com/xyzj/gopsu/db"
@@ -14,7 +13,6 @@ import (
 
 // 数据库配置
 type dbConfigure struct {
-	forshow string
 	// 数据库地址
 	addr string
 	// 登录用户名
@@ -47,46 +45,35 @@ var (
 	upsql = pathtool.JoinPathFromHere(pathtool.GetExecName() + ".dbupg")
 )
 
-func (conf *dbConfigure) show() string {
-	conf.forshow, _ = sjson.Set("", "addr", conf.addr)
-	conf.forshow, _ = sjson.Set(conf.forshow, "user", CWorker.Encrypt(conf.user))
-	conf.forshow, _ = sjson.Set(conf.forshow, "pwd", CWorker.Encrypt(conf.pwd))
-	conf.forshow, _ = sjson.Set(conf.forshow, "dbname", conf.database)
-	conf.forshow, _ = sjson.Set(conf.forshow, "driver", conf.driver)
-	conf.forshow, _ = sjson.Set(conf.forshow, "enable", conf.enable)
-	return conf.forshow
-}
-
 // Newfw.dbCtl.client mariadb client
 func (fw *WMFrameWorkV2) newDBClient(dbinit, dbupgrade string) bool {
+	fw.dbCtl.addr = fw.baseConf.GetDefault(&config.Item{Key: "db_addr", Value: "127.0.0.1:3306", Comment: "sql服务地址,ip[:port[/instance]]格式"}).String()
+	fw.dbCtl.user = fw.baseConf.GetDefault(&config.Item{Key: "db_user", Value: "root", Comment: "sql用户名"}).String()
+	fw.dbCtl.pwd = fw.baseConf.GetDefault(&config.Item{Key: "db_pwd", Value: "SsWAbSy8H1EOP3n5LdUQqls", Comment: "sql密码"}).TryDecode()
+	fw.dbCtl.driver = fw.baseConf.GetDefault(&config.Item{Key: "db_drive", Value: "mysql", Comment: "sql数据库驱动，mysql 或 mssql"}).String()
+	fw.dbCtl.enable = !*disableDB // fw.appConf.GetDefault(&config.Item{Key: "db_enable", Value: "true", Comment: "是否启用sql"}).TryBool()
+	fw.dbCtl.tls = fw.baseConf.GetDefault(&config.Item{Key: "db_tls", Value: "false", Comment: "是否启用ssl加密, false or skip-verify"}).String()
+
 	namekey := "db_name_" + strings.ReplaceAll(fw.serverName, "-"+*nameTail, "")
-	fw.dbCtl.addr = fw.wmConf.GetDefault(&config.Item{Key: "db_addr", Value: "127.0.0.1:3306", Comment: "sql服务地址,ip[:port[/instance]]格式"}).String()
-	fw.dbCtl.user = fw.wmConf.GetDefault(&config.Item{Key: "db_user", Value: "root", Comment: "sql用户名"}).String()
-	fw.dbCtl.pwd = fw.wmConf.GetDefault(&config.Item{Key: "db_pwd", Value: "SsWAbSy8H1EOP3n5LdUQqls", Comment: "sql密码"}).TryDecode()
-	fw.dbCtl.driver = fw.wmConf.GetDefault(&config.Item{Key: "db_drive", Value: "mysql", Comment: "sql数据库驱动，mysql 或 mssql"}).String()
-	fw.dbCtl.enable = fw.wmConf.GetDefault(&config.Item{Key: "db_enable", Value: "true", Comment: "是否启用sql"}).TryBool()
-	fw.dbCtl.tls = fw.wmConf.GetDefault(&config.Item{Key: "db_tls", Value: "false", Comment: "是否启用ssl加密, false or skip-verify"}).String()
-	// fw.dbCtl.databases = fw.wmConf.GetDefault(&config.Item{Key: "db_name", Value: "", Comment: "sql数据库名称，多个库(仅支持orm)用，`,`分割"}).String()
-	fw.dbCtl.databases = string(fw.wmConf.GetItem(namekey)) // fw.wmConf.GetDefault(&config.Item{Key: namekey, Value: "", Comment: "sql数据库名称，高优先级，用于多个服务共用一个配置时区分指定数据库名称，当设置时，优先级高于db_name"}).String()
+	fw.dbCtl.databases = string(fw.appConf.GetItem(namekey))
 
 	if fw.dbCtl.databases == "" {
-		fw.dbCtl.databases = fw.wmConf.GetItem("db_name").String()
+		fw.dbCtl.databases = fw.appConf.GetItem("db_name").String()
 	}
 
 	if fw.dbCtl.databases == "" {
 		fw.dbCtl.databases = "v5db_" + strings.ReplaceAll(fw.serverName, "-"+*nameTail, "")
 	}
-	fw.wmConf.DelItem("db_name")
-	fw.wmConf.PutItem(&config.Item{Key: namekey, Value: config.VString(fw.dbCtl.databases), Comment: "高优先级数据库名称配置，当设置时，忽略db_name配置值"})
-	fw.wmConf.ToFile()
+	fw.appConf.PutItem(&config.Item{Key: namekey, Value: config.VString(fw.dbCtl.databases), Comment: "高优先级数据库名称配置，当设置时，忽略db_name配置值"})
+
 	// 兼容orm，常规连接仅采用第一个数据库
 	if strings.Contains(fw.dbCtl.databases, ",") {
 		fw.dbCtl.database = strings.Split(fw.dbCtl.databases, ",")[0]
 	} else {
 		fw.dbCtl.database = fw.dbCtl.databases
 	}
-	dbcache := true //, _ := strconv.ParseBool(fw.wmConf.GetDefault(&config.Item{Key: "db_cache", "true", "是否启用结果集缓存"))
-	fw.dbCtl.show()
+	dbcache := true //, _ := strconv.ParseBool(fw.baseConf.GetDefault(&config.Item{Key: "db_cache", "true", "是否启用结果集缓存"))
+
 	if !fw.dbCtl.enable {
 		return false
 	}
@@ -169,14 +156,14 @@ MAINTAIN:
 				continue
 			}
 			// 重新刷新配置
-			fw.dbCtl.mrgTables = strings.Split(fw.wmConf.GetDefault(&config.Item{Key: "db_mrg_tables", Value: "", Comment: "使用mrg_myisam引擎分表的总表名称，用`,`分割多个总表"}).String(), ",")
-			fw.dbCtl.mrgMaxSubTables = int(fw.wmConf.GetDefault(&config.Item{Key: "db_mrg_maxsubtables", Value: "10", Comment: "分表子表数量，最小为1"}).TryInt64())
-			fw.dbCtl.mrgSubTableSize = fw.wmConf.GetDefault(&config.Item{Key: "db_mrg_subtablesize", Value: "1800", Comment: "子表最大磁盘空间容量（MB），当超过该值时，进行分表操作,推荐默认值1800"}).TryInt64()
+			fw.dbCtl.mrgTables = strings.Split(fw.appConf.GetDefault(&config.Item{Key: "db_mrg_tables", Value: "", Comment: "使用mrg_myisam引擎分表的总表名称，用`,`分割多个总表"}).String(), ",")
+			fw.dbCtl.mrgMaxSubTables = int(fw.appConf.GetDefault(&config.Item{Key: "db_mrg_maxsubtables", Value: "10", Comment: "分表子表数量，最小为1"}).TryInt64())
+			fw.dbCtl.mrgSubTableSize = fw.appConf.GetDefault(&config.Item{Key: "db_mrg_subtablesize", Value: "1800", Comment: "子表最大磁盘空间容量（MB），当超过该值时，进行分表操作,推荐默认值1800"}).TryInt64()
 			if fw.dbCtl.mrgSubTableSize < 1 {
 				fw.dbCtl.mrgSubTableSize = 10
 			}
-			fw.dbCtl.mrgSubTableRows = fw.wmConf.GetDefault(&config.Item{Key: "db_mrg_subtablerows", Value: "4500000", Comment: "子表最大行数，当超过该值时，进行分表操作，推荐默认值4500000"}).TryInt64()
-			fw.wmConf.ToFile()
+			fw.dbCtl.mrgSubTableRows = fw.appConf.GetDefault(&config.Item{Key: "db_mrg_subtablerows", Value: "4500000", Comment: "子表最大行数，当超过该值时，进行分表操作，推荐默认值4500000"}).TryInt64()
+
 			for _, v := range fw.dbCtl.mrgTables {
 				tableName := strings.TrimSpace(v)
 				if tableName == "" {
@@ -204,11 +191,6 @@ MAINTAIN:
 // MysqlIsReady 返回mysql可用状态
 func (fw *WMFrameWorkV2) MysqlIsReady() bool {
 	return fw.dbCtl.enable
-}
-
-// ViewSQLConfig 查看sql配置,返回json字符串
-func (fw *WMFrameWorkV2) ViewSQLConfig() string {
-	return fw.dbCtl.forshow
 }
 
 // DBUpgrade 检查是否需要升级数据库
