@@ -114,9 +114,9 @@ func (fw *WMFrameWorkV2) newRedisETCDClient() {
 	fw.etcdRedis(etcd)
 }
 func (fw *WMFrameWorkV2) etcdRedis(etcd *optEtcd) {
-	if !fw.newRedisClient() {
-		return
-	}
+	// if !fw.redisCtl.ready {
+	// 	fw.newRedisClient()
+	// }
 	fw.etcdCtl.ready = true
 	realip := gopsu.RealIP(fw.etcdCtl.v6)
 	key := fmt.Sprintf("/%s/etcd/%s/%s_%s", fw.rootPath, fw.serverName, fw.serverName, gopsu.GetUUID1())

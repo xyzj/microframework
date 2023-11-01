@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pyroscope-io/pyroscope/pkg/agent/profiler"
 	"github.com/tidwall/gjson"
 	"github.com/xyzj/gopsu"
 	"github.com/xyzj/gopsu/cache"
@@ -47,27 +46,29 @@ var nothere []byte
 //go:embed favicon.webp
 var favicon []byte
 
+var signalQuit = gocmd.NewSignalQuit()
+
 // NewFrameWorkV2 初始化一个新的framework
 func NewFrameWorkV2(versionInfo string) *WMFrameWorkV2 {
-	gocmd.NewProgram(&gocmd.Info{
-		Ver: versionInfo}).AddCommand(
-		gocmd.CmdStart).AddCommand(
-		gocmd.CmdRestart).AddCommand(
-		gocmd.CmdStatus).AddCommand(
-		gocmd.CmdStop).AddCommand(
-		&gocmd.Command{
-			Name:     "run",
-			Descript: "run the program.",
-			RunWithExitCode: func(pinfo *gocmd.ProcInfo) int {
-				pinfo.Pid = os.Getpid()
-				pinfo.Save()
-				gocmd.SignalCapture(pinfo.Pfile, true, nil)
-				return -1
-			},
-		}).ExecuteDefault("run")
-	// gocmd.DefaultProgram(&gocmd.Info{
-	// 	Ver: versionInfo,
-	// }).ExecuteDefault("run")
+	// gocmd.NewProgram(&gocmd.Info{
+	// 	Ver: versionInfo}).AddCommand(
+	// 	gocmd.CmdStart).AddCommand(
+	// 	gocmd.CmdRestart).AddCommand(
+	// 	gocmd.CmdStatus).AddCommand(
+	// 	gocmd.CmdStop).AddCommand(
+	// 	&gocmd.Command{
+	// 		Name:     "run",
+	// 		Descript: "run the program.",
+	// 		RunWithExitCode: func(pinfo *gocmd.ProcInfo) int {
+	// 			pinfo.Pid = os.Getpid()
+	// 			pinfo.Save()
+	// 			signalQuit.SignalCapture(nil)
+	// 			return -1
+	// 		},
+	// 	}).ExecuteDefault("run")
+	gocmd.DefaultProgram(&gocmd.Info{
+		Ver: versionInfo,
+	}).ExecuteDefault("run")
 	if !flag.Parsed() {
 		flag.Parse()
 	}
@@ -205,7 +206,7 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 		}(logLevel),
 		logLevel,
 		logDays,
-		false,
+		true,
 		cl...)
 	fw.httpWriter = logger.NewWriter(&logger.OptLog{
 		AutoRoll: logLevel > 1,
@@ -226,11 +227,14 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 		opv2.FrontFunc()
 	}
 	// redis
-	if opv2.UseRedis != nil {
-		if opv2.UseRedis.Activation {
-			fw.newRedisClient()
-		}
+	if !*disableRedis {
+		fw.newRedisClient()
 	}
+	// if opv2.UseRedis != nil {
+	// 	if opv2.UseRedis.Activation {
+	// 		fw.newRedisClient()
+	// 	}
+	// }
 	// etcd
 	if opv2.UseETCD != nil {
 		if !opv2.UseETCD.ForceOff {
@@ -337,14 +341,14 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 		}
 	}()
 	// 启用性能调试，仅可用于开发过程中
-	if *pyroscope {
-		profiler.Start(profiler.Config{
-			ApplicationName: fw.serverName + "_" + gopsu.RealIP(false),
-			ServerAddress:   "http://192.168.50.83:10097",
-		})
-	}
+	// if *pyroscope {
+	// profiler.Start(profiler.Config{
+	// 	ApplicationName: fw.serverName + "_" + gopsu.RealIP(false),
+	// 	ServerAddress:   "http://192.168.50.83:10097",
+	// })
+	// }
 	fw.appConf.ToFile()
-	fw.baseConf.ToFile()
+	// fw.baseConf.ToFile()
 	fw.WriteSystem("SYS", "Service start:"+fw.verJSON)
 }
 
@@ -374,6 +378,12 @@ func (fw *WMFrameWorkV2) loadConfigure(f string) {
 	fw.mqP2nd = fw.baseConf.GetItem("mq_2nd_enable").TryBool()
 
 	// 检查高优先级输入参数，覆盖
+	if do := fw.appConf.GetItem("domain_name").String(); do != "" {
+		if pathtool.IsExist(filepath.Join(fw.baseCAPath, do+".crt")) && pathtool.IsExist(filepath.Join(fw.baseCAPath, do+".key")) {
+			fw.httpCert = filepath.Join(fw.baseCAPath, do+".crt")
+			fw.httpKey = filepath.Join(fw.baseCAPath, do+".key")
+		}
+	}
 	if *cert != "" && *key != "" && pathtool.IsExist(*cert) && pathtool.IsExist(*key) {
 		fw.httpCert = *cert
 		fw.httpKey = *key
@@ -437,7 +447,6 @@ func (fw *WMFrameWorkV2) ReadConfigItem(key, value, remark string) string {
 // ReadConfigKeys 获取配置所有key
 func (fw *WMFrameWorkV2) ReadConfigKeys() []string {
 	s := fw.appConf.Keys()
-	println(fw.appConf, fw.baseConf)
 	if fw.appConf != fw.baseConf {
 		s = append(s, fw.baseConf.Keys()...)
 	}

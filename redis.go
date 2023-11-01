@@ -9,6 +9,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/xyzj/gopsu"
 	"github.com/xyzj/gopsu/config"
+	"github.com/xyzj/gopsu/loopfunc"
 )
 
 var (
@@ -28,7 +29,7 @@ type redisConfigure struct {
 	// client
 	client *redis.Client
 	// 主版本号
-	mianver int
+	mainver int
 	ready   bool
 }
 
@@ -46,26 +47,35 @@ func (fw *WMFrameWorkV2) newRedisClient() bool {
 	if !fw.redisCtl.enable {
 		return false
 	}
-	fw.redisCtl.client = redis.NewClient(&redis.Options{
-		Addr:            fw.redisCtl.addr,
-		Password:        fw.redisCtl.pwd,
-		DB:              fw.redisCtl.database,
-		PoolFIFO:        true,
-		MinIdleConns:    3,
-		ConnMaxIdleTime: time.Minute,
-		OnConnect: func(ctx context.Context, cn *redis.Conn) error {
+	go loopfunc.LoopFunc(func(params ...interface{}) {
+		fw.redisCtl.client = redis.NewClient(&redis.Options{
+			Addr:            fw.redisCtl.addr,
+			Password:        fw.redisCtl.pwd,
+			DB:              fw.redisCtl.database,
+			PoolFIFO:        true,
+			MinIdleConns:    3,
+			ConnMaxIdleTime: time.Minute,
+			// OnConnect: func(ctx context.Context, cn *redis.Conn) error {
+			// 	if !fw.redisCtl.ready {
+			// 		fw.redisCtl.ready = true
+			// 		fw.WriteSystem("REDIS", fmt.Sprintf("Connect to server %s is ready", fw.redisCtl.addr))
+			// 	}
+			// 	return nil
+			// },
+		})
+		if err := fw.tryRedisVer(); err == nil {
+			fw.WriteSystem("REDIS", fmt.Sprintf("Connect to server %s is ready, use db %d", fw.redisCtl.addr, fw.redisCtl.database))
+			fw.redisCtl.ready = true
+		}
+		for {
+			time.Sleep(time.Second * 10)
+			fw.WriteRedis(fw.serverName+"_write_test", "", time.Second)
 			if !fw.redisCtl.ready {
-				fw.redisCtl.ready = true
-				fw.WriteSystem("REDIS", fmt.Sprintf("Connect to server %s is ready", fw.redisCtl.addr))
+				fw.WriteError("REDIS", "connection maybe lost")
+				panic(fmt.Errorf("redis connection maybe log"))
 			}
-			return nil
-		},
-	})
-	fw.redisCtl.ready = true
-	// fw.WriteSystem("REDIS", fmt.Sprintf("Connect to server %s is ready, use db %d", fw.redisCtl.addr, fw.redisCtl.database))
-	if err := fw.tryRedisVer(); err == nil {
-		fw.WriteSystem("REDIS", fmt.Sprintf("Connect to server %s is ready, use db %d", fw.redisCtl.addr, fw.redisCtl.database))
-	}
+		}
+	}, "redis-cli", fw.LogDefaultWriter())
 	// fw.redisCtl.ready = true
 	// fw.WriteSystem("REDIS", fmt.Sprintf("Success connect to server %s, use db %d", fw.redisCtl.addr, fw.redisCtl.database))
 	return true
@@ -243,7 +253,7 @@ func (fw *WMFrameWorkV2) WriteHashRedis(key string, hashes map[string]string) er
 	ctx, cancel := context.WithTimeout(context.Background(), redisCtxTimeo)
 	defer cancel()
 	var err error
-	if fw.redisCtl.mianver < 4 {
+	if fw.redisCtl.mainver < 4 {
 		err = fw.redisCtl.client.HMSet(ctx, fw.AppendRootPathRedis(key), args).Err()
 	} else {
 		err = fw.redisCtl.client.HSet(ctx, fw.AppendRootPathRedis(key), args).Err()
@@ -358,6 +368,7 @@ func (fw *WMFrameWorkV2) logRedisError(err error, formatstr string, params ...in
 	// fw.redisCtl.ready = false
 	// }
 	if strings.Contains(err.Error(), "dial tcp") {
+		fw.redisCtl.mainver = 0
 		fw.redisCtl.ready = false
 	}
 	params = append(params, err.Error())
@@ -365,7 +376,7 @@ func (fw *WMFrameWorkV2) logRedisError(err error, formatstr string, params ...in
 	return err
 }
 func (fw *WMFrameWorkV2) tryRedisVer() error {
-	if fw.redisCtl.mianver > 0 {
+	if fw.redisCtl.mainver > 0 {
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), redisCtxTimeo)
@@ -374,10 +385,38 @@ func (fw *WMFrameWorkV2) tryRedisVer() error {
 	if err == nil {
 		for _, v := range strings.Split(a, "\r\n") {
 			if strings.HasPrefix(v, "redis_version:") {
-				fw.redisCtl.mianver = gopsu.String2Int(strings.Split(strings.Split(v, ":")[1], ".")[0], 10)
+				fw.redisCtl.mainver = gopsu.String2Int(strings.Split(strings.Split(v, ":")[1], ".")[0], 10)
 				break
 			}
 		}
 	}
 	return fw.logRedisError(err, "failed get server info %s", fw.redisCtl.addr)
+}
+
+// DelHashRedisByFieldPrefix 删redis hash key 模糊前缀
+func (fw *WMFrameWorkV2) DelHashRedisByFieldPrefix(key string, fieldPrefix string) error {
+	if !fw.redisCtl.ready {
+		return errRedisNotReady
+	}
+	if len(fieldPrefix) == 0 {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), redisCtxTimeo)
+	defer cancel()
+	// 获取哈希表的所有字段
+	fields, err := fw.redisCtl.client.HKeys(ctx, fw.AppendRootPathRedis(key)).Result()
+	if err != nil {
+		return fw.logRedisError(err, "failed to get hash fields: %s", key)
+	}
+	// 遍历字段，检查并删除匹配前缀的字段
+	for _, field := range fields {
+		if strings.HasPrefix(field, fieldPrefix) {
+			err := fw.DelHashRedis(key, field)
+			if err != nil {
+				return fw.logRedisError(err, "failed to del hash fields: %s", key)
+			}
+		}
+	}
+	return fw.logRedisError(err, "failed del redis hash data: %s, %+v", key, fields)
 }

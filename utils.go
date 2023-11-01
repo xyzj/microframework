@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"runtime"
 	"sync"
 	"time"
@@ -178,7 +179,6 @@ type OptionFrameWorkV2 struct {
 
 // WMFrameWorkV2 v2版微服务框架
 type WMFrameWorkV2 struct {
-	// coreWriter     io.Writer
 	dborms         []*gorm.DB
 	chanSSLRenew   chan struct{}
 	chanRegDone    chan struct{}
@@ -228,6 +228,7 @@ func init() {
 	// CWorker 加密
 	CWorker = gopsu.GetNewCryptoWorker(gopsu.CryptoAES128CBC)
 	CWorker.SetKey("(NMNle+XW!ykVjf1", "Zq0V+,.2u|3sGAzH")
+	os.Setenv("GOCMD_LOG_SIGNAL_TO_FILE", "1")
 }
 
 // NotHere 返回nothere图片

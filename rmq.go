@@ -388,7 +388,7 @@ func msgFromBytes(b []byte, pb proto.Message) string {
 	if err != nil {
 		return ""
 	}
-	return pb.String()
+	return gopsu.PB2String(pb) // pb.String()
 }
 
 func (fw *WMFrameWorkV2) PBBytes2String(b []byte, pb proto.Message) string {

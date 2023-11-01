@@ -30,7 +30,6 @@ import (
 	"github.com/xyzj/gopsu/excel"
 	"github.com/xyzj/gopsu/games"
 	ginmiddleware "github.com/xyzj/gopsu/gin-middleware"
-	"github.com/xyzj/gopsu/gocmd"
 	"github.com/xyzj/gopsu/json"
 	"github.com/xyzj/gopsu/loopfunc"
 	"github.com/xyzj/gopsu/pathtool"
@@ -359,7 +358,7 @@ func (fw *WMFrameWorkV2) newHTTPService(r *gin.Engine) {
 	if err != nil {
 		// panic(fmt.Errorf("Failed start HTTP(S) server at :" + strconv.Itoa(*webPort) + " | " + err.Error()))
 		fw.WriteError("WEB", "Failed start web server at :"+strconv.Itoa(*webPort)+" | "+err.Error()+". >>> QUIT ...")
-		gocmd.SendSignalQuit()
+		signalQuit.SendSignalQuit()
 		return
 	}
 }
@@ -716,6 +715,10 @@ func (fw *WMFrameWorkV2) PrepareToken(shouldAbort bool, auth ...string) gin.Hand
 			c.AddParam("_error", ex.Error())
 			return
 		}
+		if strings.Contains(c.Request.RequestURI, "usermanager/v1/user/login") ||
+			strings.Contains(c.Request.RequestURI, "usermanager/v2/user/login") {
+			return
+		}
 		tokenPath := fw.AppendRootPathRedis("usermanager/legal/" + MD5Worker.Hash(gopsu.Bytes(uuid)))
 		x, err := fw.ReadRedis(tokenPath)
 		if err != nil {
@@ -834,13 +837,17 @@ func (fw *WMFrameWorkV2) PrepareToken(shouldAbort bool, auth ...string) gin.Hand
 // PrepareTokenFromParams 从提交参数获取token信息
 func (fw *WMFrameWorkV2) PrepareTokenFromParams() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		uuid := c.Param("User-Token")
-		if len(uuid) != 36 {
-			uuid = c.Param("uuid")
+		x, _ := url.ParseQuery(c.Request.URL.RawQuery)
+		if u := x.Get("uuid"); len(u) == 36 {
+			c.Request.Header.Set("User-Token", u)
 		}
-		if len(uuid) == 36 {
-			c.Request.Header.Set("User-Token", uuid)
-		}
+		// uuid := c.Param("User-Token")
+		// if len(uuid) != 36 {
+		// 	uuid = c.Param("uuid")
+		// }
+		// if len(uuid) == 36 {
+		// 	c.Request.Header.Set("User-Token", uuid)
+		// }
 	}
 }
 
