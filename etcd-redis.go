@@ -114,9 +114,9 @@ func (fw *WMFrameWorkV2) newRedisETCDClient() {
 	fw.etcdRedis(etcd)
 }
 func (fw *WMFrameWorkV2) etcdRedis(etcd *optEtcd) {
-	// if !fw.redisCtl.ready {
-	// 	fw.newRedisClient()
-	// }
+	if !fw.redisCtl.ready {
+		fw.newRedisClient()
+	}
 	fw.etcdCtl.ready = true
 	realip := gopsu.RealIP(fw.etcdCtl.v6)
 	key := fmt.Sprintf("/%s/etcd/%s/%s_%s", fw.rootPath, fw.serverName, fw.serverName, gopsu.GetUUID1())
@@ -184,7 +184,7 @@ func (fw *WMFrameWorkV2) etcdRedis(etcd *optEtcd) {
 		fetcdRead()
 		fw.chanRegDone <- struct{}{}
 		if err := fetcdReg(); err == nil {
-			fw.WriteSystem("ETCD", fmt.Sprintf("Registration to redis-server %v as `%s://%s:%s/%s` success.", fw.redisCtl.addr, etcd.Interface, etcd.Host, etcd.Port, etcd.Name))
+			fw.WriteSystem("ETCD", fmt.Sprintf("Registration to redis-server %v as `%s://%s:%s/%s` with root path `%s` success.", fw.redisCtl.addr, etcd.Interface, etcd.Host, etcd.Port, etcd.Name, fw.rootPath))
 		}
 		for {
 			select {

@@ -226,8 +226,10 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 	if opv2.FrontFunc != nil {
 		opv2.FrontFunc()
 	}
+	// 注册
+	fw.newRedisETCDClient()
 	// redis
-	if !*disableRedis {
+	if !*disableRedis && !fw.etcdCtl.enable {
 		fw.newRedisClient()
 	}
 	// if opv2.UseRedis != nil {
@@ -236,14 +238,14 @@ func (fw *WMFrameWorkV2) Start(opv2 *OptionFrameWorkV2) {
 	// 	}
 	// }
 	// etcd
-	if opv2.UseETCD != nil {
-		if !opv2.UseETCD.ForceOff {
-			fw.newRedisETCDClient()
-		}
-		// if opv2.UseETCD.Activation {
-		// 	go fw.newETCDClient()
-		// }
-	}
+	// if opv2.UseETCD != nil {
+	// 	if !opv2.UseETCD.ForceOff {
+	// 		fw.newRedisETCDClient()
+	// 	}
+	// 	// if opv2.UseETCD.Activation {
+	// 	// 	go fw.newETCDClient()
+	// 	// }
+	// }
 	// 生产者
 	if opv2.UseMQProducer != nil {
 		if opv2.UseMQProducer.Activation {

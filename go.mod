@@ -7,7 +7,6 @@ replace github.com/xyzj/gopsu => /config/go/src/github.com/xyzj/gopsu
 require (
 	github.com/eclipse/paho.mqtt.golang v1.4.3
 	github.com/gin-contrib/cors v1.4.0
-	github.com/gin-contrib/gzip v0.0.6
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-sql-driver/mysql v1.7.0
 	github.com/gogo/protobuf v1.3.2

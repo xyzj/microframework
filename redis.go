@@ -34,10 +34,10 @@ type redisConfigure struct {
 }
 
 // NewRedisClient 新的redis client
-func (fw *WMFrameWorkV2) newRedisClient() bool {
+func (fw *WMFrameWorkV2) newRedisClient() {
 	if fw.redisCtl.ready {
 		fw.tryRedisVer()
-		return true
+		return
 	}
 	fw.redisCtl.addr = fw.baseConf.GetDefault(&config.Item{Key: "redis_addr", Value: "127.0.0.1:6379", Comment: "redis服务地址,ip:port格式"}).String()
 	fw.redisCtl.pwd = fw.baseConf.GetDefault(&config.Item{Key: "redis_pwd", Value: "WcELCNqP5dCpvMmMbKDdvgb", Comment: "redis连接密码"}).TryDecode()
@@ -45,9 +45,9 @@ func (fw *WMFrameWorkV2) newRedisClient() bool {
 	fw.redisCtl.enable = !*disableRedis // fw.baseConf.GetDefault(&config.Item{Key: "redis_enable", Value: "true", Comment: "是否启用redis"}).TryBool()
 
 	if !fw.redisCtl.enable {
-		return false
+		return
 	}
-	go loopfunc.LoopFunc(func(params ...interface{}) {
+	fConn := func() {
 		fw.redisCtl.client = redis.NewClient(&redis.Options{
 			Addr:            fw.redisCtl.addr,
 			Password:        fw.redisCtl.pwd,
@@ -67,18 +67,18 @@ func (fw *WMFrameWorkV2) newRedisClient() bool {
 			fw.WriteSystem("REDIS", fmt.Sprintf("Connect to server %s is ready, use db %d", fw.redisCtl.addr, fw.redisCtl.database))
 			fw.redisCtl.ready = true
 		}
+	}
+	fConn()
+	go loopfunc.LoopFunc(func(params ...interface{}) {
 		for {
 			time.Sleep(time.Second * 10)
 			fw.WriteRedis(fw.serverName+"_write_test", "", time.Second)
 			if !fw.redisCtl.ready {
 				fw.WriteError("REDIS", "connection maybe lost")
-				panic(fmt.Errorf("redis connection maybe log"))
+				fConn()
 			}
 		}
-	}, "redis-cli", fw.LogDefaultWriter())
-	// fw.redisCtl.ready = true
-	// fw.WriteSystem("REDIS", fmt.Sprintf("Success connect to server %s, use db %d", fw.redisCtl.addr, fw.redisCtl.database))
-	return true
+	}, "redis check", fw.LogDefaultWriter(), nil)
 }
 
 // AppendRootPathRedis 向redis的key追加头
@@ -383,10 +383,15 @@ func (fw *WMFrameWorkV2) tryRedisVer() error {
 	defer cancel()
 	a, err := fw.redisCtl.client.Info(ctx, "Server").Result()
 	if err == nil {
+	LOOP:
 		for _, v := range strings.Split(a, "\r\n") {
-			if strings.HasPrefix(v, "redis_version:") {
+			switch {
+			case strings.HasPrefix(v, "redis_version:"):
 				fw.redisCtl.mainver = gopsu.String2Int(strings.Split(strings.Split(v, ":")[1], ".")[0], 10)
-				break
+				break LOOP
+			case strings.HasPrefix(v, "godis_version:"):
+				fw.redisCtl.mainver = 4
+				break LOOP
 			}
 		}
 	}
