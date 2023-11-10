@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"github.com/xyzj/gopsu"
 	"github.com/xyzj/gopsu/config"
 	"github.com/xyzj/gopsu/loopfunc"
 	"github.com/xyzj/gopsu/mq"
+	"google.golang.org/protobuf/proto"
 )
 
 // rabbitmq配置

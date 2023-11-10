@@ -76,6 +76,9 @@ import (
 func (fw *WMFrameWorkV2) newRedisETCDClient() {
 	namekey := "etcd_reg_" + strings.ReplaceAll(fw.serverName, "-"+*nameTail, "")
 	fw.etcdCtl.enable = fw.appConf.GetDefault(&config.Item{Key: "etcd_enable", Value: "true", Comment: "是否启用服务注册"}).TryBool()
+	if *disableRedis {
+		fw.etcdCtl.enable = false
+	}
 	fw.etcdCtl.v6 = false
 	fw.etcdCtl.regAddr = fw.appConf.GetItem(namekey).String()
 

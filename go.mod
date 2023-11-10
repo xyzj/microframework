@@ -9,13 +9,13 @@ require (
 	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-sql-driver/mysql v1.7.0
-	github.com/gogo/protobuf v1.3.2
 	github.com/pkg/errors v0.9.1
 	github.com/redis/go-redis/v9 v9.0.5
 	github.com/tidwall/gjson v1.14.4
 	github.com/tidwall/sjson v1.2.5
 	github.com/xyzj/gopsu v1.4.3
 	github.com/xyzj/yaag v1.0.7
+	google.golang.org/protobuf v1.31.0
 	gorm.io/driver/mysql v1.5.0
 	gorm.io/gorm v1.25.1
 )
@@ -70,6 +70,5 @@ require (
 	golang.org/x/sync v0.3.0 // indirect
 	golang.org/x/sys v0.12.0 // indirect
 	golang.org/x/text v0.12.0 // indirect
-	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

@@ -4,10 +4,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/xyzj/gopsu"
 	"github.com/xyzj/gopsu/config"
 	"github.com/xyzj/gopsu/mq"
+	"google.golang.org/protobuf/proto"
 )
 
 func (fw *WMFrameWorkV2) loadMQConfig2nd() {
